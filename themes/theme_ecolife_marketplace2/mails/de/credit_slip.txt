@@ -1,0 +1,15 @@
+ 
+
+{shop_url}
+
+Hallo {firstname} {lastname},
+
+Bestellung {order_name} - Gutschrift
+
+Für Ihre Bestellung mit der Referenz {Bestellung_name} wurde eine Gutschrift in Ihrem Namen erstellt.
+
+Sie können diese Gutschrift einsehen und Ihre Rechnung über unseren Online-Shop herunterladen, indem Sie in Ihrem Kundenkonto auf [Gutschriften]({history_url}) gehen.
+
+[{shop_name}]({shop_url})
+
+Powered by [PrestaShop](https://www.prestashop.com/?utm_source=marchandprestashop&utm_medium=e-mail&utm_campaign=footer_1-7)

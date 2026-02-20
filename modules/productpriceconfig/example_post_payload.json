@@ -1,0 +1,29 @@
+{
+  "variables": {
+    "size": [
+      "A4",
+      "A5"
+    ],
+    "paper_type": [
+      "80gsm"
+    ]
+  },
+  "tooltips": [
+    "quantity",
+    "format"
+  ],
+  "alerts": [
+    {
+      "product_ref": "FLYERS",
+      "variable_code": "laminating",
+      "option_value": "No"
+    }
+  ],
+  "products": {
+    "FLYERS": [
+      "formula",
+      "tiered_price",
+      "banned_combinations"
+    ]
+  }
+}

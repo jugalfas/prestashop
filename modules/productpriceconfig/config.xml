@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+    <name>productpriceconfig</name>
+    <displayName><![CDATA[Product Price Cofiguration]]></displayName>
+    <version><![CDATA[1.0.0]]></version>
+    <description><![CDATA[Product Price Configure with options]]></description>
+    <author><![CDATA[Vipul Jain]]></author>
+    <tab><![CDATA[front_office_features]]></tab>
+	<confirmUninstall><![CDATA[Uninstalling the module will delete all data?]]></confirmUninstall>
+    <is_configurable>1</is_configurable>
+    <need_instance>0</need_instance>
+	<limited_countries></limited_countries>
+</module>

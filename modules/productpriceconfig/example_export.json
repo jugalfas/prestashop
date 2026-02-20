@@ -1,0 +1,132 @@
+{
+  "meta": {
+    "module": "productpriceconfig",
+    "module_version": "1.0.0",
+    "prestashop_version": "1.7.8.7",
+    "exported_at": "2023-10-27T10:00:00+00:00",
+    "environment": "production"
+  },
+  "variables": [
+    {
+      "code": "width",
+      "label": "Width",
+      "type": "2",
+      "position": 1,
+      "active": true,
+      "required": true,
+      "minimum": 0,
+      "maximum": 0,
+      "fixed_price": "0",
+      "options": [
+        {
+          "value": "100mm",
+          "price": 0.0,
+          "weight": 0.0,
+          "thickness": 0.0,
+          "position": 1,
+          "active": true
+        },
+        {
+          "value": "200mm",
+          "price": 5.0,
+          "weight": 0.0,
+          "thickness": 0.0,
+          "position": 2,
+          "active": true
+        }
+      ]
+    },
+    {
+      "code": "height",
+      "label": "Height",
+      "type": "2",
+      "position": 2,
+      "active": true,
+      "required": true,
+      "minimum": 0,
+      "maximum": 0,
+      "fixed_price": "0",
+      "options": [
+        {
+          "value": "50mm",
+          "price": 0.0,
+          "weight": 0.0,
+          "thickness": 0.0,
+          "position": 1,
+          "active": true
+        }
+      ]
+    }
+  ],
+  "tooltips": [
+    {
+      "code": "Tooltip1",
+      "label": "Tooltip1",
+      "text": "<p>Select the width of the product.</p>"
+    }
+  ],
+  "alerts": [
+    {
+      "product_reference": "DEMO_1",
+      "variable_code": "width",
+      "option_value": "100mm",
+      "message_text": "Selected width is standard."
+    }
+  ],
+  "products": [
+    {
+      "product_reference": "DEMO_1",
+      "product_name": "Demo Product",
+      "formula_price": "{width} * {height}",
+      "formula_weight": "",
+      "formula_thickness": "",
+      "formula_shipping": "",
+      "odd_quantity_percentage": "10",
+      "assigned_variables": [
+        {
+          "variable_code": "width",
+          "tooltip_code": "Tooltip1",
+          "formula_name": "{width}",
+          "active": true,
+          "minimum": 0,
+          "maximum": 0,
+          "multiplier": 1,
+          "allowed_options": ["100mm", "200mm"],
+          "default_option": "100mm"
+        },
+        {
+          "variable_code": "height",
+          "tooltip_code": null,
+          "formula_name": "{height}",
+          "active": true,
+          "minimum": 0,
+          "maximum": 0,
+          "multiplier": 1,
+          "allowed_options": ["50mm"],
+          "default_option": "50mm"
+        }
+      ],
+      "tiered_pricing_rules": "",
+      "banned_combinations": [
+        {
+          "name": "No large width with small height",
+          "active": true,
+          "conditions": [
+            {
+                "variable": "width",
+                "sign": "1",
+                "option": "200mm",
+                "and_or_sign": "0"
+            }
+          ],
+          "disallowed": [
+             {
+                 "variable": "height",
+                 "options": ["50mm"]
+             }
+          ]
+        }
+      ]
+    }
+  ]
+}
