@@ -154,11 +154,11 @@ class ImportRunner
         $label = isset($var['label']) ? $var['label'] : $code;
 
         // detect table when available
-        $tblVar = pSQL(_DB_PREFIX_).'productpriceconfig_variable';
-        $tblOpt = pSQL(_DB_PREFIX_).'productpriceconfig_variable_option';
+        $tblVar = pSQL(_DB_PREFIX_).'variable';
+        $tblOpt = pSQL(_DB_PREFIX_).'variable_option';
 
         // find existing variable by code
-        $idVar = $db->getValue("SELECT id_variable FROM $tblVar WHERE code='".pSQL($code)."'");
+        $idVar = $db->getValue("SELECT id_variable FROM $tblVar WHERE name='".pSQL($code)."'");
         $overwrite = !empty($selections['overwrite']);
 
         if ($idVar) {
@@ -199,7 +199,7 @@ class ImportRunner
     private function importTooltip($code, $html, $selections, &$results)
     {
         $db = Db::getInstance();
-        $tbl = pSQL(_DB_PREFIX_).'productpriceconfig_tooltip';
+        $tbl = pSQL(_DB_PREFIX_).'tooltip';
         $existing = $db->getValue("SELECT id_tooltip FROM $tbl WHERE code='".pSQL($code)."'");
         $overwrite = !empty($selections['overwrite']);
         if ($existing) {
@@ -223,7 +223,7 @@ class ImportRunner
         $optValue = $alert['option_value'];
         $message = isset($alert['message']) ? $alert['message'] : '';
 
-        $tblAlert = pSQL(_DB_PREFIX_).'productpriceconfig_alert';
+        $tblAlert = pSQL(_DB_PREFIX_).'alert';
 
         // find product by reference
         $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");
@@ -233,12 +233,12 @@ class ImportRunner
         }
 
         // find variable and option ids if possible
-        $idVar = $db->getValue("SELECT id_variable FROM ".pSQL(_DB_PREFIX_)."productpriceconfig_variable WHERE code='".pSQL($varCode)."'");
+        $idVar = $db->getValue("SELECT id_variable FROM ".pSQL(_DB_PREFIX_)."variable WHERE code='".pSQL($varCode)."'");
         if (!$idVar) {
             $results['warnings'][] = "Variable not found for alert, skipped: $varCode";
             return;
         }
-        $idOpt = $db->getValue("SELECT id_option FROM ".pSQL(_DB_PREFIX_)."productpriceconfig_variable_option WHERE id_variable='".pSQL($idVar)."' AND value='".pSQL($optValue)."'");
+        $idOpt = $db->getValue("SELECT id_option FROM ".pSQL(_DB_PREFIX_)."variable_option WHERE id_variable='".pSQL($idVar)."' AND value='".pSQL($optValue)."'");
         if (!$idOpt) {
             $results['warnings'][] = "Option not found for alert, skipped: $varCode => $optValue";
             return;
@@ -252,7 +252,7 @@ class ImportRunner
     private function importProductConfig($productRef, $cfg, $elements, $selections, &$results)
     {
         $db = Db::getInstance();
-        $tbl = pSQL(_DB_PREFIX_).'productpriceconfig_product_config';
+        $tbl = pSQL(_DB_PREFIX_).'product_setting';
 
         // find product id
         $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");

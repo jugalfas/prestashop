@@ -118,12 +118,12 @@ class ProductPriceConfig extends Module
                 `id_variable`   BIGINT(20)  UNSIGNED    NOT NULL AUTO_INCREMENT,
                 `name` varchar(125) NOT NULL,
                 `type` varchar(255) NOT NULL,
-                `fixed_price` int(10) unsigned NOT NULL DEFAULT \'0\',
-                `minimum` int(10) unsigned NOT NULL DEFAULT \'0\',
-                `maximum` int(10) unsigned NOT NULL DEFAULT \'0\',
-                `required` int(1) unsigned NOT NULL DEFAULT \'0\',
-                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
-                `position` int(10) unsigned NOT NULL DEFAULT \'0\',
+                `fixed_price` int(10) unsigned NOT NULL DEFAULT '0',
+                `minimum` int(10) unsigned NOT NULL DEFAULT '0',
+                `maximum` int(10) unsigned NOT NULL DEFAULT '0',
+                `required` int(1) unsigned NOT NULL DEFAULT '0',
+                `active` int(1) unsigned NOT NULL DEFAULT '1',
+                `position` int(10) unsigned NOT NULL DEFAULT '0',
                 `date_add` datetime NOT NULL,
                 `date_upd` datetime NOT NULL,
                 PRIMARY KEY (`id_variable`)
@@ -138,11 +138,11 @@ class ProductPriceConfig extends Module
 
             $sql3 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "option` (
               `id_option` int(10) unsigned NOT NULL AUTO_INCREMENT,
-			  `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT \'0\',
-              `price` decimal(20,4) NOT NULL DEFAULT \'0.00\',
-              `position` int(10) unsigned NOT NULL DEFAULT \'0\',
-              `weight` decimal(20,2) NOT NULL DEFAULT \'0.00\',
-              `active` int(1) unsigned NOT NULL DEFAULT \'0\',
+			  `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT '0',
+              `price` decimal(20,4) NOT NULL DEFAULT '0.00',
+              `position` int(10) unsigned NOT NULL DEFAULT '0',
+              `weight` decimal(20,2) NOT NULL DEFAULT '0.00',
+              `active` int(1) unsigned NOT NULL DEFAULT '0',
               PRIMARY KEY (`id_option`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
@@ -161,10 +161,10 @@ class ProductPriceConfig extends Module
                 `id_variable_tooltip` int(10) unsigned NOT NULL,
                 `default_option` int(10),
                 `formula_name` varchar(500) NOT NULL,
-                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
+                `active` int(1) unsigned NOT NULL DEFAULT '1',
                 `minimum` DOUBLE NULL DEFAULT NULL,
                 `maximum` DOUBLE NULL DEFAULT NULL,
-                `multiplier` DOUBLE NULL DEFAULT \'1\',
+                `multiplier` DOUBLE NULL DEFAULT '1',
                   PRIMARY KEY (`id_product_variable`)
                 ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
@@ -205,11 +205,11 @@ class ProductPriceConfig extends Module
                 `name` varchar(255) NOT NULL,
                 `rule` text NOT NULL,
                 `disallow` text NOT NULL,
-                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
+                `active` int(1) unsigned NOT NULL DEFAULT '1',
                 PRIMARY KEY (`id_rule_list`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
-            $sql11 = "CREATE TABLE `" . _DB_PREFIX_ . "alert_messages` (
+            $sql11 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "alert_messages` (
                 `id_alert_messages` int unsigned NOT NULL AUTO_INCREMENT,
                 `product_id` int unsigned NOT NULL,
                 `variable_id` int unsigned NOT NULL,

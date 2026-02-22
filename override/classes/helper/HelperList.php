@@ -27,7 +27,7 @@ class HelperList extends HelperListCore
 {
     /*
     * module: productpriceconfig
-    * date: 2026-01-18 17:42:08
+    * date: 2026-02-22 18:34:59
     * version: 1.0.0
     */
     public function displayDuplicateLink($token, $id, $name = null)
