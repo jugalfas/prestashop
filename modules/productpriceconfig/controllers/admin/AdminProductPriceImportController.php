@@ -31,7 +31,7 @@ class AdminProductPriceImportController extends ModuleAdminController
         $step = $existingStep ?: Tools::getValue('import_step', 1);
 
         $this->context->smarty->assign([
-            'current' => $this->context->link->getAdminLink('AdminProductPriceImport', false),
+            'current' => $this->context->link->getAdminLink('AdminProductPriceImport', true),
             'token' => Tools::getAdminTokenLite('AdminProductPriceImport'),
             'module_dir' => _MODULE_DIR_ . $this->module->name . '/',
             'module' => $this->module,
@@ -78,6 +78,19 @@ class AdminProductPriceImportController extends ModuleAdminController
         $parser = new ImportParser();
         try {
             $parsedData = $parser->parse($jsonContent);
+            // Enrich product labels when products are keyed by id (numeric)
+            if (!isset($parsedData['product_labels'])) {
+                $parsedData['product_labels'] = [];
+            }
+            $idLang = (int) $this->context->language->id;
+            foreach ($parsedData['products'] as $key => $_cfg) {
+                if (!isset($parsedData['product_labels'][$key]) && is_numeric($key)) {
+                    $name = \Product::getProductName((int)$key, null, $idLang);
+                    if ($name) {
+                        $parsedData['product_labels'][$key] = $name;
+                    }
+                }
+            }
             $this->context->smarty->assign('parsed_data', $parsedData);
             $this->context->smarty->assign('import_step', 2); // Move to step 2: Analyze & Preview
             $this->context->smarty->assign('json_content', $jsonContent); // Keep JSON content for later steps

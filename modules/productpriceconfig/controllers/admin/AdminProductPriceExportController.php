@@ -62,41 +62,85 @@ class AdminProductPriceExportController extends ModuleAdminController
     public function postProcess()
     {
         if (Tools::isSubmit('submitExportProductPriceConfig')) {
-            // Retrieve submitted data
-            $variables = Tools::getValue('variables'); // Array: [code => [val1, val2]]
-            $tooltips = Tools::getValue('tooltips');   // Array: [code1, code2]
-            $alerts = Tools::getValue('alerts');       // Array: ["ref|code|val", ...]
-            $products = Tools::getValue('products');   // Array: [ref => [option1, option2]]
+            // Retrieve submitted selections
+            $variablesSel = Tools::getValue('variables'); // [code => [opt1,opt2]]
+            $tooltipsSel = Tools::getValue('tooltips');   // [id1, id2]
+            $alertsSel   = Tools::getValue('alerts');     // ["id|ref|var|opt|msg", ...] or ["ref|var|opt|msg", ...]
+            $productsSel = Tools::getValue('products');   // [id_product => [elements...]]
 
-            // Construct the expected structure
-            $submittedData = [
-                'variables' => $variables,
-                'tooltips' => $tooltips,
-                'alerts' => [],
-                'products' => $products
-            ];
+            // Build export using builder
+            $productIds = is_array($productsSel) ? array_map('intval', array_keys($productsSel)) : [];
+            $builder = new ExportBuilder();
+            $export = $builder->buildExport([
+                'variables' => !empty($variablesSel),
+                'tooltips'  => !empty($tooltipsSel),
+                'alerts'    => !empty($alertsSel),
+                'products'  => !empty($productsSel),
+            ], $productIds);
 
-            // Parse alerts
-            if (is_array($alerts)) {
-                foreach ($alerts as $alertStr) {
-                    $parts = explode('|', $alertStr);
-                    if (count($parts) === 3) {
-                        $submittedData['alerts'][] = [
-                            'product_ref' => $parts[0],
-                            'variable_code' => $parts[1],
-                            'option_value' => $parts[2]
+            // Filter variables to only selected options
+            if (is_array($variablesSel) && !empty($export['variables'])) {
+                $filteredVars = [];
+                foreach ($export['variables'] as $var) {
+                    $code = $var['code'];
+                    if (!isset($variablesSel[$code])) {
+                        continue;
+                    }
+                    $allowed = $variablesSel[$code];
+                    $var['options'] = array_values(array_filter($var['options'], function ($o) use ($allowed) {
+                        return in_array($o['value'], $allowed, true);
+                    }));
+                    $filteredVars[] = $var;
+                }
+                $export['variables'] = $filteredVars;
+            }
+
+            // Keep only selected tooltips (expand with text)
+            if (is_array($tooltipsSel)) {
+                $allTooltips = $builder->getTooltips(); // id, label(text code), text
+                $byId = [];
+                foreach ($allTooltips as $t) { $byId[(string)$t['id']] = $t; }
+                $export['tooltips'] = [];
+                foreach ($tooltipsSel as $id) {
+                    $sid = (string)$id;
+                    if (isset($byId[$sid])) {
+                        $export['tooltips'][] = [
+                            'id'    => (int)$byId[$sid]['id'],
+                            'label' => $byId[$sid]['label'],
+                            'text'  => $byId[$sid]['text'],
                         ];
                     }
                 }
             }
 
-            // For now, output the received structure as JSON (as per "Example submitted POST payload" requirement)
-            // In a real implementation, we would pass $submittedData to a dedicated ExportService method
-            // that filters the export based on this granular selection.
-            
+            // Build selected alerts from submitted list
+            if (is_array($alertsSel)) {
+                $export['alerts'] = [];
+                foreach ($alertsSel as $alertStr) {
+                    $parts = explode('|', $alertStr);
+                    if (count($parts) >= 5) {
+                        $export['alerts'][] = [
+                            'id_product'        => (int)$parts[0],
+                            'product_ref'       => $parts[1],
+                            'variable_code'     => $parts[2],
+                            'option_value'      => $parts[3],
+                            'message_text'      => urldecode($parts[4]),
+                        ];
+                    } elseif (count($parts) >= 3) {
+                        $export['alerts'][] = [
+                            'product_ref'   => $parts[0],
+                            'variable_code' => $parts[1],
+                            'option_value'  => $parts[2],
+                            'message_text'  => isset($parts[3]) ? urldecode($parts[3]) : null,
+                        ];
+                    }
+                }
+            }
+
+            // Output final export JSON
             header('Content-Type: application/json');
-            header('Content-Disposition: attachment; filename="export_selection_debug_' . date('Y-m-d') . '.json"');
-            echo json_encode($submittedData, JSON_PRETTY_PRINT);
+            header('Content-Disposition: attachment; filename="productprice_export_' . date('Y-m-d') . '.json"');
+            echo json_encode($export, JSON_PRETTY_PRINT);
             die();
         }
     }

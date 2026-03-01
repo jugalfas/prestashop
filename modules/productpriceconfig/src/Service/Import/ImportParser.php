@@ -34,14 +34,29 @@ class ImportParser
         $normalizedVars = [];
         if ($this->isAssocArray($vars)) {
             foreach ($vars as $code => $value) {
-                if (is_array($value)) {
+                if (!is_array($value)) {
+                    continue;
+                }
+                // Case A: { code: { label: '...', options: [...] } }
+                if (isset($value['options'])) {
                     $label = isset($value['label']) ? $value['label'] : $code;
-                    $options = isset($value['options']) && is_array($value['options']) ? $value['options'] : [];
+                    $options = is_array($value['options']) ? $value['options'] : [];
                     $normalizedVars[$code] = [
                         'code' => $code,
                         'label' => $label,
                         'options' => array_values($options),
                     ];
+                } else {
+                    // Case B: { code: [ 'opt1', 'opt2', ... ] }
+                    $isList = true;
+                    foreach ($value as $k => $v) { if (!is_int($k)) { $isList = false; break; } }
+                    if ($isList) {
+                        $normalizedVars[$code] = [
+                            'code' => $code,
+                            'label' => $code,
+                            'options' => array_values($value),
+                        ];
+                    }
                 }
             }
         } else {
@@ -69,7 +84,13 @@ class ImportParser
         } else {
             foreach ($tooltips as $t) {
                 if (is_array($t) && isset($t['code'])) {
-                    $normalizedTooltips[$t['code']] = isset($t['html']) ? $t['html'] : '';
+                    $normalizedTooltips[$t['code']] = isset($t['html']) ? $t['html'] : (isset($t['text']) ? $t['text'] : '');
+                } elseif (is_array($t) && isset($t['label'])) {
+                    $code = $t['label'];
+                    $normalizedTooltips[$code] = isset($t['text']) ? $t['text'] : (isset($t['html']) ? $t['html'] : '');
+                } elseif (is_string($t)) {
+                    // Case: ["Oplage","Format",...]
+                    $normalizedTooltips[$t] = '';
                 }
             }
         }
@@ -80,29 +101,68 @@ class ImportParser
             if (!is_array($a)) {
                 continue;
             }
-            if (!isset($a['product_ref']) || !isset($a['variable_code'])) {
+            if (!isset($a['product_ref']) && !isset($a['id_product'])) {
+                continue;
+            }
+            if (!isset($a['variable_code'])) {
                 continue;
             }
             $normalizedAlerts[] = [
-                'product_ref' => (string) $a['product_ref'],
+                'id_product' => isset($a['id_product']) ? (int)$a['id_product'] : null,
+                'product_ref' => isset($a['product_ref']) ? (string)$a['product_ref'] : '',
                 'variable_code' => (string) $a['variable_code'],
                 'option_value' => isset($a['option_value']) ? (string) $a['option_value'] : '',
-                'message' => isset($a['message']) ? $a['message'] : '',
+                'message' => isset($a['message_text']) ? $a['message_text'] : (isset($a['message']) ? $a['message'] : ''),
             ];
         }
 
         // Normalize products
         $normalizedProducts = [];
+        $productLabels = [];
+        
         if ($this->isAssocArray($products)) {
             foreach ($products as $ref => $cfg) {
+                if (is_array($cfg)) {
+                    // Map alternate keys for compatibility
+                    if (isset($cfg['banned_combinations']) && !isset($cfg['baned_comb'])) {
+                        $cfg['baned_comb'] = $cfg['banned_combinations'];
+                    }
+                }
                 $normalizedProducts[$ref] = is_array($cfg) ? $cfg : [];
             }
         } else {
             foreach ($products as $p) {
-                if (is_array($p) && isset($p['product_ref'])) {
-                    $ref = $p['product_ref'];
-                    $cfg = isset($p['config']) && is_array($p['config']) ? $p['config'] : [];
+                if (is_array($p) && (isset($p['product_ref']) || isset($p['product_reference']))) {
+                    $ref = isset($p['product_ref']) ? $p['product_ref'] : $p['product_reference'];
+                    // Extract known config fields from flat product object
+                    $cfgKeys = [
+                        'formula_price',
+                        'formula_weight',
+                        'formula_thickness',
+                        'formula_shipping',
+                        'odd_quantity_percentage',
+                        'assigned_variables',
+                        'tiered_pricing_rules',
+                        'banned_combinations',
+                        'baned_comb',
+                        'tiered'
+                    ];
+                    $cfg = [];
+                    foreach ($cfgKeys as $k) {
+                        if (isset($p[$k])) {
+                            $cfg[$k] = $p[$k];
+                        }
+                    }
+                    if (empty($cfg) && isset($p['config']) && is_array($p['config'])) {
+                        $cfg = $p['config'];
+                    }
+                    if (isset($cfg['banned_combinations']) && !isset($cfg['baned_comb'])) {
+                        $cfg['baned_comb'] = $cfg['banned_combinations'];
+                    }
                     $normalizedProducts[$ref] = $cfg;
+                    if (isset($p['product_name'])) {
+                        $productLabels[$ref] = $p['product_name'];
+                    }
                 }
             }
         }
@@ -122,6 +182,7 @@ class ImportParser
             'tooltips' => $normalizedTooltips,
             'alerts' => $normalizedAlerts,
             'products' => $normalizedProducts,
+            'product_labels' => $productLabels,
             'summary' => [
                 'variables' => $countVars,
                 'variable_options' => $countVarOptions,

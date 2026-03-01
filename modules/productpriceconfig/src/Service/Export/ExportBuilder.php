@@ -36,7 +36,7 @@ class ExportBuilder
         $export = [
             'meta' => [
                 'module' => 'productpriceconfig',
-                'module_version' => '1.0.0', 
+                'module_version' => '1.0.0',
                 'prestashop_version' => _PS_VERSION_,
                 'exported_at' => date('c'),
                 'environment' => (defined('_PS_MODE_DEV_') && _PS_MODE_DEV_) ? 'staging' : 'production'
@@ -123,7 +123,8 @@ class ExportBuilder
         $result = [];
         foreach ($tooltips as $tooltip) {
             $result[] = [
-                'code' => $tooltip['label'], 
+                'id' => (int) $tooltip['id_variable_tooltip'],
+                'code' => $tooltip['label'],
                 'label' => $tooltip['label'],
                 'text' => $tooltip['text']
             ];
@@ -133,12 +134,12 @@ class ExportBuilder
 
     public function getAlerts($productIds = [])
     {
-        $sql = "SELECT a.*, p.reference as product_reference, v.name as variable_code, ol.label as option_value
+        $sql = "SELECT a.*, p.id_product as product_id, p.reference as product_reference, v.name as variable_code, ol.label as option_value
                 FROM " . _DB_PREFIX_ . "alert_messages a
                 LEFT JOIN " . _DB_PREFIX_ . "product p ON a.product_id = p.id_product
                 LEFT JOIN " . _DB_PREFIX_ . "variable v ON a.variable_id = v.id_variable
                 LEFT JOIN " . _DB_PREFIX_ . "option_lang ol ON a.option_id = ol.id_option AND ol.id_lang = " . $this->id_lang;
-        
+
         if (!empty($productIds)) {
             $sql .= " WHERE a.product_id IN (" . implode(',', array_map('intval', $productIds)) . ")";
         }
@@ -148,6 +149,8 @@ class ExportBuilder
         $result = [];
         foreach ($alerts as $alert) {
             $result[] = [
+                'id_alert_messages' => (int) $alert['id_alert_messages'],
+                'id_product' => (int) $alert['product_id'],
                 'product_reference' => $alert['product_reference'],
                 'variable_code' => $alert['variable_code'],
                 'option_value' => $alert['option_value'],
@@ -159,11 +162,11 @@ class ExportBuilder
 
     public function getProductConfigs($productIds = [])
     {
-        $sql = "SELECT ps.*, p.reference, pl.name as product_name
+        $sql = "SELECT ps.*, p.id_product, p.reference, pl.name as product_name
                 FROM " . _DB_PREFIX_ . "product_setting ps
                 LEFT JOIN " . _DB_PREFIX_ . "product p ON ps.id_product = p.id_product
                 LEFT JOIN " . _DB_PREFIX_ . "product_lang pl ON ps.id_product = pl.id_product AND pl.id_lang = " . $this->id_lang . " AND pl.id_shop = " . $this->id_shop;
-        
+
         if (!empty($productIds)) {
             $sql .= " WHERE ps.id_product IN (" . implode(',', array_map('intval', $productIds)) . ")";
         }
@@ -175,8 +178,9 @@ class ExportBuilder
 
         foreach ($settings as $setting) {
             $idProduct = (int)$setting['id_product'];
-            
+
             $result[] = [
+                'id_product' => $idProduct,
                 'product_reference' => $setting['reference'],
                 'product_name' => $setting['product_name'],
                 'formula_price' => $setting['formula_price'],
@@ -185,7 +189,7 @@ class ExportBuilder
                 'formula_shipping' => $setting['formula_shipping'],
                 'odd_quantity_percentage' => $this->getOddQtyPercentage($idProduct),
                 'assigned_variables' => $this->getProductVariables($idProduct),
-                'tiered_pricing_rules' => $setting['tiered'], 
+                'tiered_pricing_rules' => $setting['tiered'],
                 'banned_combinations' => $this->getProductRules($idProduct)
             ];
         }
@@ -206,11 +210,11 @@ class ExportBuilder
         foreach ($vars as $var) {
             $optionIds = [];
             if (!empty($var['options'])) {
-                 if (strpos($var['options'], '[') === 0) {
-                     $optionIds = json_decode($var['options'], true);
-                 } else {
-                     $optionIds = explode(',', $var['options']);
-                 }
+                if (strpos($var['options'], '[') === 0) {
+                    $optionIds = json_decode($var['options'], true);
+                } else {
+                    $optionIds = explode(',', $var['options']);
+                }
             }
 
             $optionValues = [];
@@ -252,7 +256,7 @@ class ExportBuilder
     {
         $sql = "SELECT * FROM " . _DB_PREFIX_ . "rule_list WHERE id_product = " . (int)$idProduct;
         $rules = $this->db->executeS($sql);
-        
+
         $result = [];
         foreach ($rules as $ruleRow) {
             $ruleConditions = json_decode($ruleRow['rule'], true);
@@ -261,7 +265,7 @@ class ExportBuilder
                 foreach ($ruleConditions as $cond) {
                     $mappedConditions[] = [
                         'variable' => $this->getVariableName($cond['variable']),
-                        'sign' => $cond['sign'], 
+                        'sign' => $cond['sign'],
                         'option' => $this->getOptionLabelOrValue($cond['variable'], $cond['option']),
                         'and_or_sign' => $cond['and_or_sign']
                     ];
@@ -284,9 +288,9 @@ class ExportBuilder
                             ];
                         }
                     } else {
-                         // Fallback or simpler format
-                         $mappedDisallow[] = [
-                            'variable' => $this->getVariableName(is_array($d) ? ($d['id'] ?? 0) : $d), 
+                        // Fallback or simpler format
+                        $mappedDisallow[] = [
+                            'variable' => $this->getVariableName(is_array($d) ? ($d['id'] ?? 0) : $d),
                         ];
                     }
                 }
@@ -313,10 +317,10 @@ class ExportBuilder
     {
         $sql = "SELECT type FROM " . _DB_PREFIX_ . "variable WHERE id_variable = " . (int)$idVariable;
         $type = $this->db->getValue($sql);
-        
-        if ($type == 2 || $type == 3 || $type == 4) { 
-             $label = $this->getOptionLabel((int)$value);
-             if ($label) return $label;
+
+        if ($type == 2 || $type == 3 || $type == 4) {
+            $label = $this->getOptionLabel((int)$value);
+            if ($label) return $label;
         }
         return $value;
     }

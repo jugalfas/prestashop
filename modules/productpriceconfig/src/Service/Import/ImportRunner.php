@@ -153,25 +153,50 @@ class ImportRunner
         $code = $var['code'];
         $label = isset($var['label']) ? $var['label'] : $code;
 
-        // detect table when available
+        // base and i18n tables
         $tblVar = pSQL(_DB_PREFIX_).'variable';
-        $tblOpt = pSQL(_DB_PREFIX_).'variable_option';
+        $tblVarLang = pSQL(_DB_PREFIX_).'variable_lang';
+        $tblOpt = pSQL(_DB_PREFIX_).'option';
+        $tblOptLang = pSQL(_DB_PREFIX_).'option_lang';
+        $languages = \Language::getLanguages(true);
+        $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
 
-        // find existing variable by code
-        $idVar = $db->getValue("SELECT id_variable FROM $tblVar WHERE name='".pSQL($code)."'");
+        // find existing variable by code (stored in variable.name)
+        $idVar = $db->getValue("SELECT id_variable FROM $tblVar WHERE name='" . pSQL($code) . "'");
         $overwrite = !empty($selections['overwrite']);
 
         if ($idVar) {
+            // update/insert variable_lang labels
             if ($overwrite) {
-                $db->execute("UPDATE $tblVar SET label='".pSQL($label)."' WHERE id_variable='".pSQL($idVar)."'");
+                foreach ($languages as $lang) {
+                    $idLang = (int) $lang['id_lang'];
+                    $exists = $db->getValue("SELECT 1 FROM $tblVarLang WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
+                    if ($exists) {
+                        $db->execute("UPDATE $tblVarLang SET label='" . pSQL($label) . "' WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
+                    } else {
+                        $db->execute("INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . (int) $idVar . ", " . $idLang . ", '" . pSQL($label) . "')");
+                    }
+                }
                 $results['imported'][] = "Variable updated: $code";
             } else {
                 $results['skipped'][] = "Variable exists and skipped: $code";
             }
         } else {
-            // Insert
-            $db->execute("INSERT INTO $tblVar (code, label) VALUES ('".pSQL($code)."', '".pSQL($label)."')");
-            $idVar = $db->Insert_ID();
+            // Insert minimal base variable row
+            $now = date('Y-m-d H:i:s');
+            $db->execute(
+                "INSERT INTO $tblVar (name, type, fixed_price, minimum, maximum, required, active, position, date_add, date_upd) VALUES (" .
+                "'" . pSQL($code) . "', " .
+                "'" . pSQL('2') . "', " . // default to select type
+                "0, 0, 0, 0, 1, 0, " .
+                "'" . pSQL($now) . "', '" . pSQL($now) . "')"
+            );
+            $idVar = (int) $db->Insert_ID();
+            // Insert labels for all languages (use same label)
+            foreach ($languages as $lang) {
+                $idLang = (int) $lang['id_lang'];
+                $db->execute("INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . $idVar . ", " . $idLang . ", '" . pSQL($label) . "')");
+            }
             $results['imported'][] = "Variable created: $code";
         }
 
@@ -180,17 +205,38 @@ class ImportRunner
             $selectedOptions = [];
         }
         foreach ($selectedOptions as $optValue) {
-            $optValue = (string) $optValue;
-            $idOpt = $db->getValue("SELECT id_option FROM $tblOpt WHERE id_variable='".pSQL($idVar)."' AND value='".pSQL($optValue)."'");
+            $optValue = (string)$optValue;
+            // find option by translated label in default language
+            $idOpt = $db->getValue(
+                "SELECT o.id_option 
+                 FROM $tblOpt o 
+                 INNER JOIN $tblOptLang ol ON o.id_option = ol.id_option 
+                 WHERE o.id_variable=" . (int)$idVar . " AND ol.id_lang=" . (int)$defaultIdLang . " AND ol.label='" . pSQL($optValue) . "'"
+            );
             if ($idOpt) {
                 if ($overwrite) {
-                    $db->execute("UPDATE $tblOpt SET value='".pSQL($optValue)."' WHERE id_option='".pSQL($idOpt)."'");
+                    // update label across languages
+                    foreach ($languages as $lang) {
+                        $idLang = (int)$lang['id_lang'];
+                        $exists = $db->getValue("SELECT 1 FROM $tblOptLang WHERE id_option=" . (int)$idOpt . " AND id_lang=" . $idLang);
+                        if ($exists) {
+                            $db->execute("UPDATE $tblOptLang SET label='" . pSQL($optValue) . "' WHERE id_option=" . (int)$idOpt . " AND id_lang=" . $idLang);
+                        } else {
+                            $db->execute("INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int)$idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')");
+                        }
+                    }
                     $results['imported'][] = "Option updated: $code => $optValue";
                 } else {
                     $results['skipped'][] = "Option exists and skipped: $code => $optValue";
                 }
             } else {
-                $db->execute("INSERT INTO $tblOpt (id_variable, value) VALUES ('".pSQL($idVar)."', '".pSQL($optValue)."')");
+                // create option with default values then add i18n labels
+                $db->execute("INSERT INTO $tblOpt (id_variable, price, position, weight, active) VALUES (" . (int)$idVar . ", 0, 0, 0, 1)");
+                $idOpt = (int)$db->Insert_ID();
+                foreach ($languages as $lang) {
+                    $idLang = (int)$lang['id_lang'];
+                    $db->execute("INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int)$idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')");
+                }
                 $results['imported'][] = "Option created: $code => $optValue";
             }
         }
@@ -199,18 +245,29 @@ class ImportRunner
     private function importTooltip($code, $html, $selections, &$results)
     {
         $db = Db::getInstance();
-        $tbl = pSQL(_DB_PREFIX_).'tooltip';
-        $existing = $db->getValue("SELECT id_tooltip FROM $tbl WHERE code='".pSQL($code)."'");
+        $tblBase = pSQL(_DB_PREFIX_).'variable_tooltip';
+        $tblLang = pSQL(_DB_PREFIX_).'variable_tooltip_lang';
         $overwrite = !empty($selections['overwrite']);
-        if ($existing) {
+        $idLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+
+        // Find or create base tooltip by label
+        $idTooltip = (int) $db->getValue("SELECT id_variable_tooltip FROM $tblBase WHERE label='".pSQL($code)."'");
+        if (!$idTooltip) {
+            $db->execute("INSERT INTO $tblBase (label) VALUES ('".pSQL($code)."')");
+            $idTooltip = (int) $db->Insert_ID();
+        }
+
+        // Upsert language row (store HTML content in lang table)
+        $existsLang = $db->getValue("SELECT 1 FROM $tblLang WHERE id_variable_tooltip=".(int)$idTooltip." AND id_lang=".$idLang);
+        if ($existsLang) {
             if ($overwrite) {
-                $db->execute("UPDATE $tbl SET html='".pSQL($html)."' WHERE id_tooltip='".pSQL($existing)."'");
+                $db->execute("UPDATE $tblLang SET text='".pSQL($html, true)."' WHERE id_variable_tooltip=".(int)$idTooltip." AND id_lang=".$idLang);
                 $results['imported'][] = "Tooltip updated: $code";
             } else {
                 $results['skipped'][] = "Tooltip exists and skipped: $code";
             }
         } else {
-            $db->execute("INSERT INTO $tbl (code, html) VALUES ('".pSQL($code)."', '".pSQL($html)."')");
+            $db->execute("INSERT INTO $tblLang (id_variable_tooltip, id_lang, text) VALUES (".(int)$idTooltip.", ".$idLang.", '".pSQL($html, true)."')");
             $results['imported'][] = "Tooltip created: $code";
         }
     }
@@ -218,34 +275,63 @@ class ImportRunner
     private function importAlert($alert, $selections, &$results)
     {
         $db = Db::getInstance();
-        $productRef = $alert['product_ref'];
+        $productRef = isset($alert['product_ref']) ? $alert['product_ref'] : '';
         $varCode = $alert['variable_code'];
         $optValue = $alert['option_value'];
         $message = isset($alert['message']) ? $alert['message'] : '';
 
-        $tblAlert = pSQL(_DB_PREFIX_).'alert';
+        $tblAlert = pSQL(_DB_PREFIX_).'alert_messages';
 
-        // find product by reference
-        $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");
+        // find product by id (preferred), or by reference, or by localized name (any language)
+        $idProduct = 0;
+        if (isset($alert['id_product']) && (int)$alert['id_product'] > 0) {
+            $idProduct = (int)$alert['id_product'];
+        }
+        $trimRef = trim((string)$productRef);
+        if (!$idProduct && $trimRef !== '' && ctype_digit($trimRef)) {
+            $idProduct = (int) $trimRef;
+        }
+        if (!$idProduct && $trimRef !== '') {
+            $idProduct = (int) $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($trimRef)."'");
+        }
+        if (!$idProduct && $trimRef !== '') {
+            $langs = \Language::getLanguages(true);
+            foreach ($langs as $lang) {
+                $idLang = (int)$lang['id_lang'];
+                $sqlName = "SELECT pl.id_product 
+                            FROM `"._DB_PREFIX_."product_lang` pl 
+                            WHERE pl.name='".pSQL($trimRef)."' AND pl.id_lang=".$idLang."
+                            ORDER BY pl.id_product ASC";
+                $idProduct = (int) $db->getValue($sqlName);
+                if ($idProduct) { break; }
+            }
+        }
         if (!$idProduct) {
             $results['warnings'][] = "Product not found for alert, skipped: $productRef";
             return;
         }
 
         // find variable and option ids if possible
-        $idVar = $db->getValue("SELECT id_variable FROM ".pSQL(_DB_PREFIX_)."variable WHERE code='".pSQL($varCode)."'");
+        $idVar = $db->getValue("SELECT id_variable FROM ".pSQL(_DB_PREFIX_)."variable WHERE name='".pSQL($varCode)."'");
         if (!$idVar) {
             $results['warnings'][] = "Variable not found for alert, skipped: $varCode";
             return;
         }
-        $idOpt = $db->getValue("SELECT id_option FROM ".pSQL(_DB_PREFIX_)."variable_option WHERE id_variable='".pSQL($idVar)."' AND value='".pSQL($optValue)."'");
+
+        $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $idOpt = $db->getValue(
+            "SELECT o.id_option 
+             FROM ".pSQL(_DB_PREFIX_)."option o
+             INNER JOIN ".pSQL(_DB_PREFIX_)."option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = ".(int)$defaultIdLang.")
+             WHERE o.id_variable='".pSQL($idVar)."' AND ol.label='".pSQL($optValue)."'"
+        );
         if (!$idOpt) {
             $results['warnings'][] = "Option not found for alert, skipped: $varCode => $optValue";
             return;
         }
 
         // Insert alert (do not update existing alerts automatically)
-        $db->execute("INSERT INTO $tblAlert (id_product, id_variable, id_option, message) VALUES ('".pSQL($idProduct)."', '".pSQL($idVar)."', '".pSQL($idOpt)."', '".pSQL($message)."')");
+        $db->execute("INSERT INTO $tblAlert (product_id, variable_id, option_id, message) VALUES ('".pSQL($idProduct)."', '".pSQL($idVar)."', '".pSQL($idOpt)."', '".pSQL($message)."')");
         $results['imported'][] = "Alert created for product $productRef";
     }
 
@@ -254,38 +340,104 @@ class ImportRunner
         $db = Db::getInstance();
         $tbl = pSQL(_DB_PREFIX_).'product_setting';
 
-        // find product id
-        $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");
+        // find product id (accept id or reference)
+        if (is_numeric($productRef)) {
+            $idProduct = (int) $productRef;
+        } else {
+            $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");
+        }
         if (!$idProduct) {
             $results['warnings'][] = "Product not found, product config skipped: $productRef";
             return;
         }
 
-        // Compose config payload only with requested elements
-        $payload = [];
-        foreach ($elements as $el) {
-            if (isset($cfg[$el])) {
-                $payload[$el] = $cfg[$el];
+        // Map incoming keys to table columns
+        $columnMap = [
+            'formula_price' => 'formula_price',
+            'formula_weight' => 'formula_weight',
+            'formula_thickness' => 'formula_thickness',
+            'formula_shipping' => 'formula_shipping',
+            'tiered' => 'tiered',
+            'tiered_pricing_rules' => 'tiered',
+            'baned_comb' => 'baned_comb',
+        ];
+
+        // Detect existing columns to avoid SQL errors if schema varies
+        $columns = $db->executeS("SHOW COLUMNS FROM `$tbl`");
+        $existingCols = [];
+        foreach ($columns as $c) {
+            if (isset($c['Field'])) {
+                $existingCols[$c['Field']] = true;
             }
         }
 
-        if (empty($payload)) {
+        // Build set of updates based on selected elements and available columns
+        $setData = [];
+        foreach ($elements as $el) {
+            if (!isset($cfg[$el])) {
+                continue;
+            }
+            if (!isset($columnMap[$el])) {
+                continue;
+            }
+            $col = $columnMap[$el];
+            if (!isset($existingCols[$col])) {
+                continue;
+            }
+            $val = $cfg[$el];
+            // Normalize arrays/objects to JSON for storage
+            if (is_array($val) || is_object($val)) {
+                $val = json_encode($val, JSON_UNESCAPED_UNICODE);
+            }
+            $setData[$col] = $val;
+        }
+
+        if (empty($setData)) {
             $results['warnings'][] = "No selected product elements for $productRef";
             return;
         }
 
         // Find existing config by product
-        $existing = $db->getValue("SELECT id_config FROM $tbl WHERE id_product='".pSQL($idProduct)."'");
+        $existing = $db->getValue("SELECT id_product_setting FROM $tbl WHERE id_product='".pSQL($idProduct)."'");
         $overwrite = !empty($selections['overwrite']);
         if ($existing) {
             if ($overwrite) {
-                $db->execute("UPDATE $tbl SET config='".pSQL(json_encode($payload))."' WHERE id_config='".pSQL($existing)."'");
+                $assignments = [];
+                foreach ($setData as $col => $val) {
+                    $assignments[] = "`$col`='".pSQL($val, true)."'";
+                }
+                if (!empty($assignments)) {
+                    $sql = "UPDATE $tbl SET ".implode(',', $assignments)." WHERE id_product_setting='".pSQL($existing)."'";
+                    $db->execute($sql);
+                }
                 $results['imported'][] = "Product config updated: $productRef";
             } else {
                 $results['skipped'][] = "Product config exists and skipped: $productRef";
             }
         } else {
-            $db->execute("INSERT INTO $tbl (id_product, config) VALUES ('".pSQL($idProduct)."', '".pSQL(json_encode($payload))."')");
+            // Provide defaults for required columns that might be absent from selection
+            $defaults = [
+                'formula_price' => '',
+                'formula_weight' => '',
+                'formula_thickness' => '',
+                'formula_shipping' => '',
+                'tiered' => '',
+                'baned_comb' => '0',
+            ];
+            $insertData = $defaults;
+            foreach ($setData as $col => $val) {
+                $insertData[$col] = $val;
+            }
+            // Filter to existing columns only
+            $insertData = array_filter($insertData, function ($k) use ($existingCols) { return isset($existingCols[$k]); }, ARRAY_FILTER_USE_KEY);
+            $fields = array_map(function ($f) { return "`$f`"; }, array_keys($insertData));
+            $values = array_map(function ($v) { 
+                if (is_array($v) || is_object($v)) {
+                    $v = json_encode($v, JSON_UNESCAPED_UNICODE);
+                }
+                return "'".pSQL($v, true)."'"; 
+            }, array_values($insertData));
+            $db->execute("INSERT INTO $tbl (`id_product`, ".implode(',', $fields).") VALUES ('".pSQL($idProduct)."', ".implode(',', $values).")");
             $results['imported'][] = "Product config created: $productRef";
         }
     }
