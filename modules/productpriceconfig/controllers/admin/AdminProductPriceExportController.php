@@ -121,16 +121,16 @@ class AdminProductPriceExportController extends ModuleAdminController
                     if (count($parts) >= 5) {
                         $export['alerts'][] = [
                             'id_product'        => (int)$parts[0],
-                            'product_ref'       => $parts[1],
+                            'product_ref'       => urldecode($parts[1]),
                             'variable_code'     => $parts[2],
-                            'option_value'      => $parts[3],
+                            'option_value'      => urldecode($parts[3]),
                             'message_text'      => urldecode($parts[4]),
                         ];
                     } elseif (count($parts) >= 3) {
                         $export['alerts'][] = [
-                            'product_ref'   => $parts[0],
+                            'product_ref'   => urldecode($parts[0]),
                             'variable_code' => $parts[1],
-                            'option_value'  => $parts[2],
+                            'option_value'  => isset($parts[2]) ? urldecode($parts[2]) : '',
                             'message_text'  => isset($parts[3]) ? urldecode($parts[3]) : null,
                         ];
                     }

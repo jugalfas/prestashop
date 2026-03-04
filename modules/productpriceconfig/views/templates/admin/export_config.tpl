@@ -331,7 +331,7 @@
                                         <div class="md-checkbox md-checkbox-inline">
                                             <label>
                                                 <input type="checkbox" class="alert-child-checkbox" name="alerts[]"
-                                                    value="{$alert.id_product}|{$alert.product_reference}|{$alert.variable_code}|{$alert.option_value}|{$alert.message_text|escape:'url'}"
+                                                    value="{$alert.id_product|escape:'url'}|{$alert.product_reference|escape:'url'}|{$alert.variable_code|escape:'url'}|{$alert.option_value|escape:'url'}|{$alert.message_text|escape:'url'}"
                                                     data-parent="{$product_ref}">
                                                 <i class="md-checkbox-control"></i>
                                                 <span class="label label-info">{$alert.variable_code}</span> :

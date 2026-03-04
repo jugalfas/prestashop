@@ -96,7 +96,7 @@ class ImportRunner
                 }
             }
 
-            if ($selections['dry_run']) {
+            if (isset($selections['dry_run']) && $selections['dry_run']) {
                 // Rollback changes on dry-run
                 $db->execute('ROLLBACK');
                 $logId = $this->writeLog($parsedData, $selections, $results, 'dry_run');
@@ -104,7 +104,7 @@ class ImportRunner
                 return $results;
             }
 
-            // Commit
+            // Commit transaction
             if (!$db->execute('COMMIT')) {
                 throw new Exception('Could not commit DB transaction.');
             }
