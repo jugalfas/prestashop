@@ -124,14 +124,14 @@ class ImportRunner
     private function ensureLogTable()
     {
         $db = Db::getInstance();
-        $sql = 'CREATE TABLE IF NOT EXISTS `'.pSQL(_DB_PREFIX_).'productpriceconfig_import_log` (
+        $sql = 'CREATE TABLE IF NOT EXISTS `' . pSQL(_DB_PREFIX_) . 'productpriceconfig_import_log` (
             `id_import` INT(11) NOT NULL AUTO_INCREMENT,
             `date_add` DATETIME NOT NULL,
             `status` VARCHAR(32) NOT NULL,
             `selections` TEXT NULL,
             `results` TEXT NULL,
             PRIMARY KEY (`id_import`)
-        ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8;';
+        ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8;';
         return $db->execute($sql);
     }
 
@@ -141,8 +141,8 @@ class ImportRunner
         $now = date('Y-m-d H:i:s');
         $selectionsStr = pSQL(json_encode($selections));
         $resultsStr = pSQL(json_encode($results));
-        $sql = 'INSERT INTO `'.pSQL(_DB_PREFIX_).'productpriceconfig_import_log` (`date_add`, `status`, `selections`, `results`) VALUES ('
-            ."'".$now."', '".pSQL($status)."', '".$selectionsStr."', '".$resultsStr."')";
+        $sql = 'INSERT INTO `' . pSQL(_DB_PREFIX_) . 'productpriceconfig_import_log` (`date_add`, `status`, `selections`, `results`) VALUES ('
+            . "'" . $now . "', '" . pSQL($status) . "', '" . $selectionsStr . "', '" . $resultsStr . "')";
         $db->execute($sql);
         return $db->Insert_ID();
     }
@@ -154,10 +154,10 @@ class ImportRunner
         $label = isset($var['label']) ? $var['label'] : $code;
 
         // base and i18n tables
-        $tblVar = pSQL(_DB_PREFIX_).'variable';
-        $tblVarLang = pSQL(_DB_PREFIX_).'variable_lang';
-        $tblOpt = pSQL(_DB_PREFIX_).'option';
-        $tblOptLang = pSQL(_DB_PREFIX_).'option_lang';
+        $tblVar = pSQL(_DB_PREFIX_) . 'variable';
+        $tblVarLang = pSQL(_DB_PREFIX_) . 'variable_lang';
+        $tblOpt = pSQL(_DB_PREFIX_) . 'option';
+        $tblOptLang = pSQL(_DB_PREFIX_) . 'option_lang';
         $languages = \Language::getLanguages(true);
         $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
 
@@ -186,10 +186,10 @@ class ImportRunner
             $now = date('Y-m-d H:i:s');
             $db->execute(
                 "INSERT INTO $tblVar (name, type, fixed_price, minimum, maximum, required, active, position, date_add, date_upd) VALUES (" .
-                "'" . pSQL($code) . "', " .
-                "'" . pSQL('2') . "', " . // default to select type
-                "0, 0, 0, 0, 1, 0, " .
-                "'" . pSQL($now) . "', '" . pSQL($now) . "')"
+                    "'" . pSQL($code) . "', " .
+                    "'" . pSQL('2') . "', " . // default to select type
+                    "0, 0, 0, 0, 1, 0, " .
+                    "'" . pSQL($now) . "', '" . pSQL($now) . "')"
             );
             $idVar = (int) $db->Insert_ID();
             // Insert labels for all languages (use same label)
@@ -245,29 +245,29 @@ class ImportRunner
     private function importTooltip($code, $html, $selections, &$results)
     {
         $db = Db::getInstance();
-        $tblBase = pSQL(_DB_PREFIX_).'variable_tooltip';
-        $tblLang = pSQL(_DB_PREFIX_).'variable_tooltip_lang';
+        $tblBase = pSQL(_DB_PREFIX_) . 'variable_tooltip';
+        $tblLang = pSQL(_DB_PREFIX_) . 'variable_tooltip_lang';
         $overwrite = !empty($selections['overwrite']);
         $idLang = (int) \Configuration::get('PS_LANG_DEFAULT');
 
         // Find or create base tooltip by label
-        $idTooltip = (int) $db->getValue("SELECT id_variable_tooltip FROM $tblBase WHERE label='".pSQL($code)."'");
+        $idTooltip = (int) $db->getValue("SELECT id_variable_tooltip FROM $tblBase WHERE label='" . pSQL($code) . "'");
         if (!$idTooltip) {
-            $db->execute("INSERT INTO $tblBase (label) VALUES ('".pSQL($code)."')");
+            $db->execute("INSERT INTO $tblBase (label) VALUES ('" . pSQL($code) . "')");
             $idTooltip = (int) $db->Insert_ID();
         }
 
         // Upsert language row (store HTML content in lang table)
-        $existsLang = $db->getValue("SELECT 1 FROM $tblLang WHERE id_variable_tooltip=".(int)$idTooltip." AND id_lang=".$idLang);
+        $existsLang = $db->getValue("SELECT 1 FROM $tblLang WHERE id_variable_tooltip=" . (int)$idTooltip . " AND id_lang=" . $idLang);
         if ($existsLang) {
             if ($overwrite) {
-                $db->execute("UPDATE $tblLang SET text='".pSQL($html, true)."' WHERE id_variable_tooltip=".(int)$idTooltip." AND id_lang=".$idLang);
+                $db->execute("UPDATE $tblLang SET text='" . pSQL($html, true) . "' WHERE id_variable_tooltip=" . (int)$idTooltip . " AND id_lang=" . $idLang);
                 $results['imported'][] = "Tooltip updated: $code";
             } else {
                 $results['skipped'][] = "Tooltip exists and skipped: $code";
             }
         } else {
-            $db->execute("INSERT INTO $tblLang (id_variable_tooltip, id_lang, text) VALUES (".(int)$idTooltip.", ".$idLang.", '".pSQL($html, true)."')");
+            $db->execute("INSERT INTO $tblLang (id_variable_tooltip, id_lang, text) VALUES (" . (int)$idTooltip . ", " . $idLang . ", '" . pSQL($html, true) . "')");
             $results['imported'][] = "Tooltip created: $code";
         }
     }
@@ -280,7 +280,7 @@ class ImportRunner
         $optValue = $alert['option_value'];
         $message = isset($alert['message']) ? $alert['message'] : '';
 
-        $tblAlert = pSQL(_DB_PREFIX_).'alert_messages';
+        $tblAlert = pSQL(_DB_PREFIX_) . 'alert_messages';
 
         // find product by id (preferred), or by reference, or by localized name (any language)
         $idProduct = 0;
@@ -292,18 +292,20 @@ class ImportRunner
             $idProduct = (int) $trimRef;
         }
         if (!$idProduct && $trimRef !== '') {
-            $idProduct = (int) $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($trimRef)."'");
+            $idProduct = (int) $db->getValue("SELECT id_product FROM `" . _DB_PREFIX_ . "product` WHERE reference='" . pSQL($trimRef) . "'");
         }
         if (!$idProduct && $trimRef !== '') {
             $langs = \Language::getLanguages(true);
             foreach ($langs as $lang) {
                 $idLang = (int)$lang['id_lang'];
                 $sqlName = "SELECT pl.id_product 
-                            FROM `"._DB_PREFIX_."product_lang` pl 
-                            WHERE pl.name='".pSQL($trimRef)."' AND pl.id_lang=".$idLang."
+                            FROM `" . _DB_PREFIX_ . "product_lang` pl 
+                            WHERE pl.name='" . pSQL($trimRef) . "' AND pl.id_lang=" . $idLang . "
                             ORDER BY pl.id_product ASC";
                 $idProduct = (int) $db->getValue($sqlName);
-                if ($idProduct) { break; }
+                if ($idProduct) {
+                    break;
+                }
             }
         }
         if (!$idProduct) {
@@ -312,7 +314,7 @@ class ImportRunner
         }
 
         // find variable and option ids if possible
-        $idVar = $db->getValue("SELECT id_variable FROM ".pSQL(_DB_PREFIX_)."variable WHERE name='".pSQL($varCode)."'");
+        $idVar = $db->getValue("SELECT id_variable FROM " . pSQL(_DB_PREFIX_) . "variable WHERE name='" . pSQL($varCode) . "'");
         if (!$idVar) {
             $results['warnings'][] = "Variable not found for alert, skipped: $varCode";
             return;
@@ -321,9 +323,9 @@ class ImportRunner
         $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
         $idOpt = $db->getValue(
             "SELECT o.id_option 
-             FROM ".pSQL(_DB_PREFIX_)."option o
-             INNER JOIN ".pSQL(_DB_PREFIX_)."option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = ".(int)$defaultIdLang.")
-             WHERE o.id_variable='".pSQL($idVar)."' AND ol.label='".pSQL($optValue)."'"
+             FROM " . pSQL(_DB_PREFIX_) . "option o
+             INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+             WHERE o.id_variable='" . pSQL($idVar) . "' AND ol.label='" . pSQL($optValue) . "'"
         );
         if (!$idOpt) {
             $results['warnings'][] = "Option not found for alert, skipped: $varCode => $optValue";
@@ -331,20 +333,20 @@ class ImportRunner
         }
 
         // Insert alert (do not update existing alerts automatically)
-        $db->execute("INSERT INTO $tblAlert (product_id, variable_id, option_id, message) VALUES ('".pSQL($idProduct)."', '".pSQL($idVar)."', '".pSQL($idOpt)."', '".pSQL($message)."')");
+        $db->execute("INSERT INTO $tblAlert (product_id, variable_id, option_id, message) VALUES ('" . pSQL($idProduct) . "', '" . pSQL($idVar) . "', '" . pSQL($idOpt) . "', '" . pSQL($message) . "')");
         $results['imported'][] = "Alert created for product $productRef";
     }
 
     private function importProductConfig($productRef, $cfg, $elements, $selections, &$results)
     {
         $db = Db::getInstance();
-        $tbl = pSQL(_DB_PREFIX_).'product_setting';
+        $tbl = pSQL(_DB_PREFIX_) . 'product_setting';
 
         // find product id (accept id or reference)
         if (is_numeric($productRef)) {
             $idProduct = (int) $productRef;
         } else {
-            $idProduct = $db->getValue("SELECT id_product FROM `"._DB_PREFIX_."product` WHERE reference='".pSQL($productRef)."'");
+            $idProduct = $db->getValue("SELECT id_product FROM `" . _DB_PREFIX_ . "product` WHERE reference='" . pSQL($productRef) . "'");
         }
         if (!$idProduct) {
             $results['warnings'][] = "Product not found, product config skipped: $productRef";
@@ -398,20 +400,196 @@ class ImportRunner
         }
 
         // Find existing config by product
-        $existing = $db->getValue("SELECT id_product_setting FROM $tbl WHERE id_product='".pSQL($idProduct)."'");
+        $existing = $db->getValue("SELECT id_product_setting FROM $tbl WHERE id_product='" . pSQL($idProduct) . "'");
+        echo '<pre>';
+        print_r($existing);
+        echo '</pre>';
         $overwrite = !empty($selections['overwrite']);
         if ($existing) {
             if ($overwrite) {
                 $assignments = [];
                 foreach ($setData as $col => $val) {
-                    $assignments[] = "`$col`='".pSQL($val, true)."'";
+                    $assignments[] = "`$col`='" . pSQL($val, true) . "'";
                 }
                 if (!empty($assignments)) {
-                    $sql = "UPDATE $tbl SET ".implode(',', $assignments)." WHERE id_product_setting='".pSQL($existing)."'";
+                    $sql = "UPDATE $tbl SET " . implode(',', $assignments) . " WHERE id_product_setting='" . pSQL($existing) . "'";
                     $db->execute($sql);
+                }
+                if (isset($setData['baned_comb']) && !is_array($setData['baned_comb'])) {
+                    foreach (json_decode($setData['baned_comb'], true) as $key => $banned_comb) {
+                        $name = pSQL($banned_comb['name']);
+                        $active = (int)$banned_comb['active'];
+                        $rules = array();
+                        foreach ($banned_comb['conditions'] as $condition) {
+                            $variableName = trim($condition['variable']);
+                            $optionName   = trim($condition['option']);
+                            $sign         = (int)$condition['sign'];
+                            $andOrSign    = (int)$condition['and_or_sign'];
+
+                            // Get variable ID from variable name
+                            $idVariable = Db::getInstance()->getValue(
+                                'SELECT id_variable 
+                                FROM `' . _DB_PREFIX_ . 'variable`
+                                WHERE name = "' . pSQL($variableName) . '"'
+                            );
+
+                            $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+                            // Get option ID from option name + variable ID
+                            $idOption = $db->getValue(
+                                "SELECT o.id_option 
+                                FROM " . pSQL(_DB_PREFIX_) . "option o
+                                INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                                WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
+                            );
+                            if ($idVariable && $idOption) {
+                                $rules[] = array(
+                                    'variable'     => (int)$idVariable,
+                                    'sign'         => $sign,
+                                    'option'       => (int)$idOption,
+                                    'and_or_sign'  => $andOrSign,
+                                );
+                            }
+                        }
+
+                        $ruleJson = pSQL(json_encode($rules));
+                        $disallowRules = array();
+
+                        foreach ($banned_comb['disallowed'] as $disallowed) {
+                            $variableName = trim($disallowed['variable']);
+                            $optionIds = array();
+
+                            $idVariable = Db::getInstance()->getValue(
+                                'SELECT id_variable 
+                                FROM `' . _DB_PREFIX_ . 'variable`
+                                WHERE name = "' . pSQL($variableName) . '"'
+                            );
+
+                            if ($idVariable && !empty($disallowed['options'])) {
+                                foreach ($disallowed['options'] as $optionName) {
+                                    $idOption = $db->getValue(
+                                        "SELECT o.id_option 
+                                        FROM " . pSQL(_DB_PREFIX_) . "option o
+                                        INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                                        WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
+                                    );
+
+                                    echo "Variable: $variableName, Option: $optionName, ID Variable: $idVariable, ID Option: $idOption<br>";
+
+                                    if ($idOption) {
+                                        $optionIds[] = (int)$idOption;
+                                    }
+                                }
+
+                                $disallowRules[] = array(
+                                    'disallow_variable' => (int)$idVariable,
+                                    'disallow_options'  => $optionIds,
+                                );
+                            }
+                        }
+
+                        $disallowJson = pSQL(json_encode($disallowRules));
+                        $idProduct = (int)$idProduct;
+                        $sql = 'INSERT INTO `' . pSQL(_DB_PREFIX_) . 'rule_list`
+                            (`id_product`, `name`, `rule`, `disallow`, `active`)
+                            VALUES (
+                                ' . $idProduct . ',
+                                "' . $name . '",
+                                "' . $ruleJson . '",
+                                "' . $disallowJson . '",
+                                ' . $active . '
+                            )';
+                        $db->execute($sql);
+                    }
                 }
                 $results['imported'][] = "Product config updated: $productRef";
             } else {
+                if (isset($setData['baned_comb']) && !is_array($setData['baned_comb'])) {
+                    foreach (json_decode($setData['baned_comb'], true) as $key => $banned_comb) {
+                        $name = pSQL($banned_comb['name']);
+                        $active = (int)$banned_comb['active'];
+                        $rules = array();
+                        foreach ($banned_comb['conditions'] as $condition) {
+                            $variableName = trim($condition['variable']);
+                            $optionName   = trim($condition['option']);
+                            $sign         = (int)$condition['sign'];
+                            $andOrSign    = (int)$condition['and_or_sign'];
+
+                            // Get variable ID from variable name
+                            $idVariable = Db::getInstance()->getValue(
+                                'SELECT id_variable 
+                                FROM `' . _DB_PREFIX_ . 'variable`
+                                WHERE name = "' . pSQL($variableName) . '"'
+                            );
+
+                            $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+                            // Get option ID from option name + variable ID
+                            $idOption = $db->getValue(
+                                "SELECT o.id_option 
+                                FROM " . pSQL(_DB_PREFIX_) . "option o
+                                INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                                WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
+                            );
+                            if ($idVariable && $idOption) {
+                                $rules[] = array(
+                                    'variable'     => (int)$idVariable,
+                                    'sign'         => $sign,
+                                    'option'       => (int)$idOption,
+                                    'and_or_sign'  => $andOrSign,
+                                );
+                            }
+                        }
+
+                        $ruleJson = pSQL(json_encode($rules));
+                        $disallowRules = array();
+
+                        foreach ($banned_comb['disallowed'] as $disallowed) {
+                            $variableName = trim($disallowed['variable']);
+                            $optionIds = array();
+
+                            $idVariable = Db::getInstance()->getValue(
+                                'SELECT id_variable 
+                                FROM `' . _DB_PREFIX_ . 'variable`
+                                WHERE name = "' . pSQL($variableName) . '"'
+                            );
+
+                            if ($idVariable && !empty($disallowed['options'])) {
+                                foreach ($disallowed['options'] as $optionName) {
+                                    $idOption = $db->getValue(
+                                        "SELECT o.id_option 
+                                        FROM " . pSQL(_DB_PREFIX_) . "option o
+                                        INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                                        WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
+                                    );
+
+                                    echo "Variable: $variableName, Option: $optionName, ID Variable: $idVariable, ID Option: $idOption<br>";
+
+                                    if ($idOption) {
+                                        $optionIds[] = $idOption;
+                                    }
+                                }
+
+                                $disallowRules[] = array(
+                                    'disallow_variable' => [$idVariable],
+                                    'disallow_options'  => $optionIds,
+                                );
+                            }
+                        }
+
+                        $disallowJson = pSQL(json_encode($disallowRules));
+                        $idProduct = (int)$idProduct;
+                        $sql = 'INSERT INTO `' . pSQL(_DB_PREFIX_) . 'rule_list`
+                            (`id_product`, `name`, `rule`, `disallow`, `active`)
+                            VALUES (
+                                ' . $idProduct . ',
+                                "' . $name . '",
+                                "' . $ruleJson . '",
+                                "' . $disallowJson . '",
+                                ' . $active . '
+                            )';
+
+                        $db->execute($sql);
+                    }
+                }
                 $results['skipped'][] = "Product config exists and skipped: $productRef";
             }
         } else {
@@ -429,15 +607,19 @@ class ImportRunner
                 $insertData[$col] = $val;
             }
             // Filter to existing columns only
-            $insertData = array_filter($insertData, function ($k) use ($existingCols) { return isset($existingCols[$k]); }, ARRAY_FILTER_USE_KEY);
-            $fields = array_map(function ($f) { return "`$f`"; }, array_keys($insertData));
-            $values = array_map(function ($v) { 
+            $insertData = array_filter($insertData, function ($k) use ($existingCols) {
+                return isset($existingCols[$k]);
+            }, ARRAY_FILTER_USE_KEY);
+            $fields = array_map(function ($f) {
+                return "`$f`";
+            }, array_keys($insertData));
+            $values = array_map(function ($v) {
                 if (is_array($v) || is_object($v)) {
                     $v = json_encode($v, JSON_UNESCAPED_UNICODE);
                 }
-                return "'".pSQL($v, true)."'"; 
+                return "'" . pSQL($v, true) . "'";
             }, array_values($insertData));
-            $db->execute("INSERT INTO $tbl (`id_product`, ".implode(',', $fields).") VALUES ('".pSQL($idProduct)."', ".implode(',', $values).")");
+            $db->execute("INSERT INTO $tbl (`id_product`, " . implode(',', $fields) . ") VALUES ('" . pSQL($idProduct) . "', " . implode(',', $values) . ")");
             $results['imported'][] = "Product config created: $productRef";
         }
     }
