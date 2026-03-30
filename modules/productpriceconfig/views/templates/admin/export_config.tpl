@@ -353,12 +353,53 @@
             <!-- Section 4: Product Pricing Config -->
             <div class="form-group">
                 <h3>
-                    <div class="md-checkbox md-checkbox-inline">
-                        <label>
-                            <input type="checkbox" class="select-all-section" data-target="section-products">
-                            <i class="md-checkbox-control"></i>
-                        </label>
-                        {l s='Product Pricing Configuration' mod='productpriceconfig'}
+                    <div class="md-checkbox md-checkbox-inline" style="display: flex; justify-content: space-between;">
+                        <div>
+                            <label>
+                                <input type="checkbox" class="select-all-section" data-target="section-products">
+                                <i class="md-checkbox-control"></i>
+                            </label>
+                            {l s='Product Pricing Configuration' mod='productpriceconfig'}
+                        </div>
+                        <div class="list-unstyled"
+                            style="margin-left: 25px;border-left: 1px solid #ccc;padding-left: 10px;display: flex;gap: 10px;">
+                            <div>
+                                <div class="md-checkbox md-checkbox-inline">
+                                    <label>
+                                        <input type="checkbox" class="global-type-checkbox" data-type="formula">
+                                        <i class="md-checkbox-control"></i>
+                                        {l s='Formula settings' mod='productpriceconfig'}
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="md-checkbox md-checkbox-inline">
+                                    <label>
+                                        <input type="checkbox" class="global-type-checkbox" data-type="tiered_price">
+                                        <i class="md-checkbox-control"></i>
+                                        {l s='Tiered price' mod='productpriceconfig'}
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="md-checkbox md-checkbox-inline">
+                                    <label>
+                                        <input type="checkbox" class="global-type-checkbox" data-type="banned_combinations">
+                                        <i class="md-checkbox-control"></i>
+                                        {l s='Banned combinations' mod='productpriceconfig'}
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="md-checkbox md-checkbox-inline">
+                                    <label>
+                                        <input type="checkbox" class="global-type-checkbox" data-type="odd_quantity">
+                                        <i class="md-checkbox-control"></i>
+                                        {l s='Odd quantity percentage' mod='productpriceconfig'}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </h3>
                 <ul class="list-unstyled tree-list" id="section-products">
