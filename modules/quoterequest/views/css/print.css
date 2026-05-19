@@ -1,0 +1,147 @@
+.quote-top-section {
+  border-top: none;
+  border-radius: 5px 5px 0 0;
+  padding: 45px 45px 20px;
+  background: #f6f6f6;
+}
+.quote-table-setion {
+  padding: 0 0 45px;
+  background: #f6f6f6;
+  border-radius: 0 0 5px 5px;
+  margin-bottom: 30px;
+}
+.date-area {
+  font-size: 14px;
+  font-style: italic;
+  text-transform: uppercase;
+  color: #000;
+  font-weight: 900;
+  padding: 0;
+  position: relative;
+  font-family: "Interstate", sans-serif;
+}
+.date-heading-area {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  position: relative;
+  border-bottom: 1px solid #d4d5d4;
+}
+.date-area::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: #afcb31;
+}
+.text-success {
+  color: #00b682 !important;
+}
+.quote-top-number {
+  font-size: 16px;
+  color: #000;
+  font-weight: 700;
+  padding: 0;
+}
+.quote-top-link {
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px 45px 0;
+}
+.quote-pending,
+.quote-quotation {
+  font-size: 14px;
+  padding: 0;
+  color: #000;
+  font-family: "Interstate", sans-serif;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-style: italic;
+  margin: 0 10px;
+}
+.quote-top-date {
+  font-size: 14px;
+  color: #000;
+}
+.quote-table-setion .table-responsive {
+  padding: 0 45px;
+}
+.quote-top-link a {
+  border: 1px solid #8f8d8d;
+  font-size: 13px;
+  background: #8f8d8d;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 8px 20px;
+  margin: 0 4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  float: left;
+  border-radius: 3px;
+}
+.quote-top-link a:hover {
+  background: #afcb31;
+  border: 1px solid #afcb31;
+  color: #fff;
+}
+.quote-top-section .row {
+  display: flex;
+  align-items: center;
+}
+.quote-table-setion table td {
+  border-right: none;
+  font-size: 13px;
+}
+.quote-table-setion table tr {
+  border-bottom: none;
+}
+.quote-table-heading {
+  color: #999;
+  font-size: 13px;
+}
+.quote-table-setion td {
+  font-size: 14px;
+  color: #000;
+}
+.list-product-img {
+  width: 100%;
+  display: flex;
+}
+.list-product-img img {
+  width: 120px;
+  margin: 0;
+}
+.table.quote-table > thead > tr > th {
+  border-bottom: 1px solid #e0dede !important;
+  padding: 15px 10px !important;
+  font-size: 14px;
+}
+.table.quote-table > tbody > tr > td {
+  padding: 20px 10px;
+}
+.requote-button a {
+  border: 1px solid #8f8d8d;
+  font-size: 12px;
+  color: #8f8d8d;
+  font-weight: 500;
+  padding: 4px 5px 2px;
+  float: left;
+  border-radius: 3px;
+  margin-top: 18px;
+}
+
+.requote-button a.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.requote-button a:hover {
+  background: #afcb31;
+  border: 1px solid #afcb31;
+  color: #fff;
+}

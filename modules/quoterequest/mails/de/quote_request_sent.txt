@@ -1,0 +1,19 @@
+Quote Request Sent Successfully
+
+Dear {customer_name},
+
+Thank you for requesting a quote with us! We have successfully received your quote request.
+
+Here are the details of your request:
+- Quote ID: {quote_id}
+- Date: {date_add}
+- Title: {quote_title}
+
+We will review your request and get back to you shortly with a detailed quote.
+
+If you have any questions, feel free to contact us at support@example.com.
+
+Thank you for choosing our services!
+
+Best regards,
+The {shop_name} Team

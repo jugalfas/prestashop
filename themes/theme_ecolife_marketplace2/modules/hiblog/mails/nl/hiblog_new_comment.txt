@@ -1,0 +1,13 @@
+ 
+
+{shop_url}
+
+Hi,
+
+New comment added for the article {postTitle}
+
+{comment}
+
+[{shop_name}]({shop_url})
+
+Powered by [PrestaShop](https://www.prestashop-project.org/)

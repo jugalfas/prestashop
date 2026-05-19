@@ -1,0 +1,11 @@
+[{shop_url}] 
+
+Hi {name},
+
+Thank you for creating a customer account at {shop_name}. 
+
+Your account is pending for validation and will be activated soon.
+
+{shop_name} [{shop_url}] powered
+by PrestaShop(tm) [http://www.prestashop.com/] 
+

@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <title>Bericht van {shop_name}</title>
+    <style>
+        /**** Global ****/
+        body {
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        table,
+        td {
+            border-collapse: collapse;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+            font-size: inherit;
+            text-align: inherit;
+        }
+
+        img {
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+            -ms-interpolation-mode: bicubic;
+        }
+
+        p {
+            display: block;
+            margin: 13px 0;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /**** Download Product ****/
+        ul {
+            font-size: 14px;
+            margin: 0;
+            padding: 0 0 0 25px;
+        }
+
+        ul li {
+            padding-bottom: 10px;
+        }
+
+        ul li:last-child {
+            padding-bottom: 0;
+        }
+
+        ul li a {
+            display: block;
+        }
+
+        /**** Order Conf ***/
+        table.table-list tr td {
+            border-bottom-color: inherit !important;
+            border-bottom-width: 1px !important;
+            border-bottom-style: solid !important;
+            padding: 10px !important;
+        }
+
+        table.table-list tr td:first-child {
+            text-align: left !important;
+        }
+
+        table.table-list tr td:last-child {
+            text-align: right !important;
+        }
+
+        table.table-list tr.conf_body td {
+            border: none !important;
+        }
+
+        /**** Media Query ****/
+        @media (max-width: 991px) {
+            .body {
+                padding: 0px !important;
+            }
+
+            .container {
+                margin: auto !important;
+                width: 100% !important;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .group-title {
+                margin-bottom: 30px !important;
+            }
+
+            .group-title .title {
+                font-size: 30px !important;
+            }
+
+            .content {
+                padding-top: 40px !important;
+                padding-bottom: 40px !important;
+            }
+
+            .custom-text {
+                width: 100% !important;
+            }
+
+            .custom-block {
+                margin-top: 40px !important;
+            }
+
+            .spacing {
+                height: 40px !important;
+            }
+
+            .line-spacing {
+                margin: 40px auto !important;
+            }
+        }
+
+        @media (max-width: 575px) {
+            table {
+                table-layout: fixed;
+            }
+
+            .content,
+            .banners {
+                padding-left: 15px !important;
+                padding-right: 15px !important;
+            }
+
+            .banner .title-banner,
+            .banner .sub-title-banner,
+            .banner .desciption-banner {
+                width: 90% !important;
+            }
+
+            .banner .title-banner {
+                font-size: 35px !important;
+                padding-top: 30px !important;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css?family=Arial:300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <style>
+        @import url(&#039;https://fonts.googleapis.com/css?family=Arial:300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i&#039;);
+    </style>
+</head>
+
+<body>
+    <div class="body" style="background-color: #dfdfdf;background-image: url(#ffffff);background-position: center;color: #161616;margin: 0px;padding: 30px 0px;font-family: Arial;font-size: 16px;font-weight: normal;">
+        <div class="container" style="width: 700px;margin: 0px auto;">
+            <div class="header" style="background-color: #fff;background-image: url();background-position: center;padding: 0 30px;overflow: hidden;">
+                <div class="logo" style="text-align: center;">
+                    <a href="{shop_url}" style="padding: 30px 0px;display: inline-block;vertical-align:middle;" target="_blank">
+                        <img alt="{shop_name}" title="{shop_name}" height="auto" src="{shop_logo}" style="border:none;border-radius:0px;display:block;outline:none;text-decoration:none;height:auto;max-width:350px;">
+                    </a>
+                </div>
+            </div>
+            <div class="banner image-parent" style="text-align: center;position: relative;background: #ffffff;">
+                            </div>
+            <div class="content" style="background-color: #ffffff;background-image: url();background-position: center;padding: 60px 30px">
+
+
+
+                <div class="group-title" style="text-align: left;margin-bottom: 50px;">
+                    <h3 class="title" style="color: #afcb31;font-size: 30px;margin: 0px 0px 10px;">Hallo {firstname} {lastname},</h3>
+                </div>
+
+                <div class="table-wrapper" style="background: #f9f9f9;color: #333333;text-align: left;border: 1px solid #e9e9e9;font-size: 14px;">
+                    <h3 class="table-caption" style="padding: 10px 0px;margin: 0px 15px;border-bottom-width: 3px;border-bottom-style: double;border-bottom-color: #e9e9e9;color: #333333;">Klantenservice - Doorgestuurd klantenbericht</h3>
+                    <div class="table-content" style="padding: 10px 15px;">
+                        <p class="table-line" style="margin: 9px 0px;"><span><strong>{employee}</strong></span> heeft dit bericht naar je doorgestuurd.</p>
+                        <p class="table-line" style="margin: 9px 0px 20px;"><b><span><strong>Bericht geschiedenis</strong></span>:</b> {messages}</p>
+                        <p class="table-line" style="margin: 9px 0px;"><span><strong>{employee}</strong></span> heeft het volgende bericht achtergelaten: <span><strong>{comment}</strong></span></p>
+                    </div>
+                </div>
+                
+            </div>
+            <div class="social" style="background-color: #ffffff;background-image: url();background-position: center;text-align: center;padding: 20px 30px;">
+                                <h3 class="title-social" style="color: #333333;margin: 0px 0px 10px;font-size: 20px;font-weight: 500;">Volg jij ons al? </h3>
+                                <div class="social-items" style="font-size: 0px;margin: 0px -5px;">
+                                                            <a href="https://www.facebook.com/onlyprint.nl" class="social-item" title="Facebook" style="padding: 2px 5px;display: inline-block;vertical-align: middle;">
+                        <img src="http://dev.onlyprint.nl/img/emails/facebook.png" alt="Facebook" width="30px" height="30px" />
+                    </a>
+                                                                                <a href="https://www.instagram.com/onlyprint.nl" class="social-item" title="Instagram" style="padding: 2px 5px;display: inline-block;vertical-align: middle;">
+                        <img src="http://dev.onlyprint.nl/img/emails/instagram.png" alt="Instagram" width="30px" height="30px" />
+                    </a>
+                                                                                                    <a href="https://www.tiktok.com/@onlyprint.nl" class="social-item" title="Vimeo" style="padding: 2px 5px;display: inline-block;vertical-align: middle;">
+                        <img src="http://dev.onlyprint.nl/img/emails/vimeo.png" alt="Vimeo" width="30px" height="30px" />
+                    </a>
+                                                            <a href="https://pinterest.com/onlyprintnl/" class="social-item" title="Linkedin" style="padding: 2px 5px;display: inline-block;vertical-align: middle;">
+                        <img src="http://dev.onlyprint.nl/img/emails/linkedin.png" alt="Linkedin" width="30px" height="30px" />
+                    </a>
+                                    </div>
+                            </div>
+            <div class="footer" style="background-color: #ffffff;background-image: url();background-position: center;color: #333333;padding: 15px 0px;text-align: center;">
+                <ul class="links-footer" style="list-style: none;padding: 0px;font-size: inherit;margin: 0 -8px;color: #afcb31;font-weight: 600;">
+                                                                                                                    </ul>
+
+                                <div class="copyright" style="padding: 0px;color: #333333;">
+                    +3145-3020011 | info@onlyprint.nl | Hoofdstraat 53, 6372CP Landgraaf
+                                        <a href="www.onlyprint.nl" style="color: #333333;" target="_blank">Onlyprint.nl b.v.</a>
+                                    </div>
+                            </div>
+        </div>
+    </div>
+</body>
+
+</html>

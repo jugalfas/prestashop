@@ -401,9 +401,6 @@ class ImportRunner
 
         // Find existing config by product
         $existing = $db->getValue("SELECT id_product_setting FROM $tbl WHERE id_product='" . pSQL($idProduct) . "'");
-        echo '<pre>';
-        print_r($existing);
-        echo '</pre>';
         $overwrite = !empty($selections['overwrite']);
         if ($existing) {
             if ($overwrite) {

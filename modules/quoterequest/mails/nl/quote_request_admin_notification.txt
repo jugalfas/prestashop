@@ -1,0 +1,16 @@
+New Quote Request Submitted
+
+Hello {admin_name},
+
+A new quote request has been submitted on your store. Here are the details:
+
+- Quote ID: {quote_id}
+- Date: {date_add}
+- Customer Name: {customer_name}
+- Customer Email: {customer_email}
+- Title: {quote_title}
+
+You can review the quote request in the admin panel under the "Quote Requests" section.
+
+Best regards,
+The {shop_name} Team
