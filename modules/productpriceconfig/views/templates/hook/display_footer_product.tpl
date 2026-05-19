@@ -265,7 +265,7 @@
                 <a href="#" class="main-add-to-cart single_add_to_cart_button">{l s='In de winkelwagen'
                                 mod='productpriceconfig'}
                 </a>
-                {if $show_upload_tool}
+               {*  {if $show_upload_tool}
                 <!-- Button trigger modal -->
                 <div class="customize-area">
                     <button type="button" class="btn btn-primary customize_design" data-draft_code="" data-template_id ="{$template_upload_id|escape:'javascript'}" data-option_id ="{$template_option_id|escape:'javascript'}" >
@@ -273,7 +273,7 @@
                             style="font-size: 16px; margin-left: 5px; display: none;"></i>
                     </button>
                 </div>
-                {/if}
+                {/if} *}
             </div>
 
             <span class="text-danger alert_message_text"></span>

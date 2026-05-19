@@ -470,7 +470,6 @@ class ImportRunner
                                         WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
                                     );
 
-                                    echo "Variable: $variableName, Option: $optionName, ID Variable: $idVariable, ID Option: $idOption<br>";
 
                                     if ($idOption) {
                                         $optionIds[] = (int)$idOption;
@@ -557,8 +556,6 @@ class ImportRunner
                                         INNER JOIN " . pSQL(_DB_PREFIX_) . "option_lang ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
                                         WHERE o.id_variable='" . pSQL($idVariable) . "' AND ol.label='" . pSQL($optionName) . "'"
                                     );
-
-                                    echo "Variable: $variableName, Option: $optionName, ID Variable: $idVariable, ID Option: $idOption<br>";
 
                                     if ($idOption) {
                                         $optionIds[] = $idOption;

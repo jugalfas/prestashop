@@ -126,7 +126,7 @@
 		{/if}
 		
 		<a href="#filters" class="template-tab-option first active">
-		{l s='Options' mod='productpriceconfig'}</a>
+		{l s='Options' mod='productpriceconfig'}dawd</a>
 		
 		<div id="filters" class="template-tab-content clearfix first active">
 			<div class="f-list sortable">

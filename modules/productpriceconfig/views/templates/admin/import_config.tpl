@@ -312,7 +312,7 @@
             </div>
         </div>
     {/if}
-</div>
+    </div>
 </div>
 {literal}
     <script>
@@ -338,7 +338,9 @@
                     'data-parent');
                 $('.select-all-section').on('change', function() {
                     var tid = $(this).data('target');
+                    console.log(tid);
                     var on = $(this).prop('checked');
+                    console.log(on);
                     $('#' + tid).find('input[type="checkbox"]').prop('checked', on).prop(
                         'indeterminate', false);
                 });

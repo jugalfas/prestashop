@@ -163,7 +163,6 @@
 					{* <pre>
 					{$rules_list|print_r}
 					</pre> *}
-
 				</tbody>
 			</table>
 
@@ -700,6 +699,7 @@
 					});
 					$('#edit_rules_modal').modal('show');
 					$('#edit_rules_modal #saveRule').attr('id', 'updateRule')
+					$('#edit_rules_modal #updateRule').attr('data-id_rule_list', id_rule);
 				} else {
 					swal("Error", "Could not fetch rule data.", "error");
 				}
@@ -711,34 +711,62 @@
 		});
 	});
 
-	$(document).on('click', '#updateRule', function() {
-		var formData = $('#rules_form')
+	$(document).on('click', '#updateRule', function(e) {
+		e.preventDefault();
+
+		const $btn = $(this);
+		const $modal = $btn.closest('.modal:visible');
+
+		if (!$modal.length) return;
+
+		const $form = $modal.find('#rules_form');
+
+		// ✅ only visible + enabled inputs inside this modal
+		var formData = $form
 			.find(':input:visible:not(:disabled)')
 			.serializeArray();
+
+		const id_rule_list = $btn.data('id_rule_list');
+		const id_product = $('.af').data('id_product');
+
 		formData.push({ name: 'id_product', value: id_product });
-		formData.push({ name: 'id_rule_list', value: $('#id_rule_list').val() });
-		$('.disallow_option').each(function(index) {
-			formData.push({ name: 'disallow_options' + (index + 1), value: $(this).val() });
+		formData.push({ name: 'id_rule_list', value: id_rule_list });
+
+		// 🔥 disallow options scoped to modal
+		$modal.find('.disallow_option').each(function(index) {
+			formData.push({
+				name: 'disallow_options' + (index + 1),
+				value: $(this).val()
+			});
 		});
 
-		var action = $('#id_rule_list').val() ? 'AjaxUpdateRule' : 'SaveBanCombSettings';
+		const action = id_rule_list ? 'AjaxUpdateRule' : 'SaveBanCombSettings';
+
+		var cloneCount = $modal.find('.clone_div').length || 2;
+		var cloneDisallowVariable = $modal.find('.disallow_option').length || 0;
 
 		$.ajax({
-			url: ajax_action_path + '&action=' + action + '&count=' + cloneCount + '&cloneOptionCount=' +
+			url: ajax_action_path +
+				'&action=' +
+				action +
+				'&count=' +
+				cloneCount +
+				'&cloneOptionCount=' +
 				cloneDisallowVariable,
 			type: 'POST',
 			dataType: 'json',
 			data: formData,
 			success: function(response) {
 				if (response.success) {
-					swal("Success", response.message, "success");
-					$('#exampleModalCenter').modal('hide');
-					$('#rules_list').DataTable().ajax.reload();
+					swal("Success", response.message, "success").then(() => {
+						$modal.modal('hide');
+						$('#rules_list').DataTable().ajax.reload();
+					});
 				} else {
 					swal("Error", response.message, "error");
 				}
 			},
-			error: function(xhr, status, error) {
+			error: function(xhr) {
 				console.error(xhr.responseText);
 				swal("Error", "An error occurred while saving the rule.", "error");
 			}

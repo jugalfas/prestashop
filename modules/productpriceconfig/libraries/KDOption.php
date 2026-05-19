@@ -30,6 +30,7 @@ class KDOption extends ObjectModel
 	public $weight;
 
 	public $thickness;
+	public $supplier_sku;
 	public $label;
 	public $price;
 	public $active;
@@ -45,6 +46,7 @@ class KDOption extends ObjectModel
 			'id_variable' =>	array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'weight' =>	array('type' => self::TYPE_FLOAT, 'lang' => false, 'validate' => 'isPrice', 'required' => false),
 			'thickness' =>	array('type' => self::TYPE_FLOAT, 'lang' => false, 'validate' => 'isPrice', 'required' => false),
+			'supplier_sku' =>	array('type' => self::TYPE_STRING, 'lang' => false, 'validate' => 'isGenericName', 'required' => false),
 			'price' =>                array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => false),
 			'position' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'active' =>                array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
@@ -72,7 +74,7 @@ class KDOption extends ObjectModel
 		$lang = new Language((int)Configuration::get('PS_LANG_DEFAULT'));
 		return Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS(
 			'
-				SELECT  a.`id_option`, a.`price` , a.`weight`, a.`thickness`, b.`label`
+				SELECT  a.`id_option`, a.`price` , a.`weight`, a.`thickness`, a.`supplier_sku`, b.`label`
 				FROM ' . _DB_PREFIX_ . 'option a
 				LEFT JOIN ' . _DB_PREFIX_ . 'option_lang b ON (a.id_option = b.id_option)
 				WHERE b.id_lang = ' . (int)$lang->id . '

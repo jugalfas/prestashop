@@ -118,12 +118,12 @@ class ProductPriceConfig extends Module
                 `id_variable`   BIGINT(20)  UNSIGNED    NOT NULL AUTO_INCREMENT,
                 `name` varchar(125) NOT NULL,
                 `type` varchar(255) NOT NULL,
-                `fixed_price` int(10) unsigned NOT NULL DEFAULT '0',
-                `minimum` int(10) unsigned NOT NULL DEFAULT '0',
-                `maximum` int(10) unsigned NOT NULL DEFAULT '0',
-                `required` int(1) unsigned NOT NULL DEFAULT '0',
-                `active` int(1) unsigned NOT NULL DEFAULT '1',
-                `position` int(10) unsigned NOT NULL DEFAULT '0',
+                `fixed_price` int(10) unsigned NOT NULL DEFAULT \'0\',
+                `minimum` int(10) unsigned NOT NULL DEFAULT \'0\',
+                `maximum` int(10) unsigned NOT NULL DEFAULT \'0\',
+                `required` int(1) unsigned NOT NULL DEFAULT \'0\',
+                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
+                `position` int(10) unsigned NOT NULL DEFAULT \'0\',
                 `date_add` datetime NOT NULL,
                 `date_upd` datetime NOT NULL,
                 PRIMARY KEY (`id_variable`)
@@ -138,11 +138,11 @@ class ProductPriceConfig extends Module
 
             $sql3 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "option` (
               `id_option` int(10) unsigned NOT NULL AUTO_INCREMENT,
-			  `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT '0',
-              `price` decimal(20,4) NOT NULL DEFAULT '0.00',
-              `position` int(10) unsigned NOT NULL DEFAULT '0',
-              `weight` decimal(20,2) NOT NULL DEFAULT '0.00',
-              `active` int(1) unsigned NOT NULL DEFAULT '0',
+			  `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT \'0\',
+              `price` decimal(20,4) NOT NULL DEFAULT \'0.00\',
+              `position` int(10) unsigned NOT NULL DEFAULT \'0\',
+              `weight` decimal(20,2) NOT NULL DEFAULT \'0.00\',
+              `active` int(1) unsigned NOT NULL DEFAULT \'0\',
               PRIMARY KEY (`id_option`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
@@ -161,10 +161,10 @@ class ProductPriceConfig extends Module
                 `id_variable_tooltip` int(10) unsigned NOT NULL,
                 `default_option` int(10),
                 `formula_name` varchar(500) NOT NULL,
-                `active` int(1) unsigned NOT NULL DEFAULT '1',
+                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
                 `minimum` DOUBLE NULL DEFAULT NULL,
                 `maximum` DOUBLE NULL DEFAULT NULL,
-                `multiplier` DOUBLE NULL DEFAULT '1',
+                `multiplier` DOUBLE NULL DEFAULT \'1\',
                   PRIMARY KEY (`id_product_variable`)
                 ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
@@ -205,11 +205,11 @@ class ProductPriceConfig extends Module
                 `name` varchar(255) NOT NULL,
                 `rule` text NOT NULL,
                 `disallow` text NOT NULL,
-                `active` int(1) unsigned NOT NULL DEFAULT '1',
+                `active` int(1) unsigned NOT NULL DEFAULT \'1\',
                 PRIMARY KEY (`id_rule_list`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
-            $sql11 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "alert_messages` (
+            $sql11 = "CREATE TABLE `" . _DB_PREFIX_ . "alert_messages` (
                 `id_alert_messages` int unsigned NOT NULL AUTO_INCREMENT,
                 `product_id` int unsigned NOT NULL,
                 `variable_id` int unsigned NOT NULL,
@@ -249,7 +249,6 @@ class ProductPriceConfig extends Module
             $this->installModuleTab('AdminProductPriceExport', array((int)$this->context->language->id => 'Export Configuration'), $id_tab);
             $this->installModuleTab('AdminProductPriceImport', array((int)$this->context->language->id => 'Import Configuration'), $id_tab);
 
-
             return true;
         }
         return false;
@@ -272,7 +271,7 @@ class ProductPriceConfig extends Module
 
         // Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'product_setting`');
 
-        if (parent::uninstall() && $this->uninstallModuleTab('AdminVariable', $id_tab) && $this->uninstallModuleTab('AdminVariableToolTip', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfig', $id_tab) && $this->uninstallModuleTab('AdminProductPriceExport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceImport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfigHome', 0)) {
+        if (parent::uninstall() && $this->uninstallModuleTab('AdminVariable', $id_tab) && $this->uninstallModuleTab('AdminVariableToolTips', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfig', $id_tab) && $this->uninstallModuleTab('AdminProductPriceExport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceImport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfigHome', 0)) {
             return true;
         }
 
@@ -283,23 +282,15 @@ class ProductPriceConfig extends Module
     private function installModuleTab($tabClass, $tabName, $idTabParent)
     {
         $tab = new Tab();
+
+        $langues = Language::getLanguages(false);
+        foreach ($langues as $langue)
+            if (!Tools::getIsset($tabName[$langue['id_lang']])) $tabName[$langue['id_lang']] = $tabName[(int)$this->context->language->id];
+
+        $tab->name = $tabName;
         $tab->class_name = $tabClass;
         $tab->module = $this->name;
         $tab->id_parent = $idTabParent;
-
-        $languages = Language::getLanguages(false);
-        $tab_name_multilang = [];
-        $default_lang_id = (int)$this->context->language->id;
-
-        // Ensure a default name exists for the current context language
-        $default_name = isset($tabName[$default_lang_id]) ? $tabName[$default_lang_id] : reset($tabName); // Fallback to first element if default not set
-
-        foreach ($languages as $lang) {
-            $lang_id = (int)$lang['id_lang'];
-            // Use the provided translation if available, otherwise fall back to the default language name
-            $tab_name_multilang[$lang_id] = isset($tabName[$lang_id]) ? $tabName[$lang_id] : $default_name;
-        }
-        $tab->name = $tab_name_multilang;
         $id_tab = $tab->save();
         if (!$id_tab)
             return false;
@@ -481,10 +472,10 @@ class ProductPriceConfig extends Module
         } else {
             $data['type'] = 'input';
             if ($variable_options == 1 || $variable_options == 4) {
-                $html .= '<input type="number" class="form-control options options' . $count . '" data-id_variable="' . $id_variable . '" name="disallow_options' . $count . '[]">';
+                $html .= '<input type="number" class="form-control options options' . $count . '" data-id_variable="' . $id_variable . '" name="disallow_options' . $count . '[]" value="' . $selected_options[0] . '">';
             }
             if ($variable_options == 5) {
-                $html .= '<input type="text" class="form-control options options' . $count . '" data-id_variable="' . $id_variable . '" name="disallow_options' . $count . '[]">';
+                $html .= '<input type="text" class="form-control options options' . $count . '" data-id_variable="' . $id_variable . '" name="disallow_options' . $count . '[]" value="' . $selected_options[0] . '">';
             }
         }
 
@@ -697,7 +688,7 @@ class ProductPriceConfig extends Module
         $cloneOptionCount = Tools::getValue('cloneOptionCount');
 
 
-        for ($i = 1; $i < $count; $i++) {
+        for ($i = 1; $i <= $count; $i++) {
             $variable = 'variables' . $i;
             $sign = 'sign' . $i;
             $option = 'options' . $i;
@@ -706,7 +697,7 @@ class ProductPriceConfig extends Module
             $rule[] = array('variable' => $_POST[$variable], 'sign' => $_POST[$sign], 'option' => $options, 'and_or_sign' => $_POST[$and_or_sign]);
         }
 
-        for ($i = 1; $i < $cloneOptionCount; $i++) {
+        for ($i = 1; $i <= $cloneOptionCount; $i++) {
             $disallow = 'disallow' . $i;
             $disallow_options = 'disallow_options' . $i;
             $disallowarr[] = array('disallow_variable' => $_POST[$disallow], 'disallow_options' => $_POST[$disallow_options]);
@@ -723,7 +714,6 @@ class ProductPriceConfig extends Module
 
         $disallow = Tools::jsonEncode($disallowarr);
         $rule_list->disallow = $disallow;
-
 
         $rule_list->save();
         return $rule_list->id;
@@ -801,7 +791,7 @@ class ProductPriceConfig extends Module
             if (isset($_POST["disallow_options$i"])) {
                 $disallow_options = is_array($_POST["disallow_options$i"])
                     ? $_POST["disallow_options$i"]
-                    : [$_POST["disallow_options$i"]];
+                    : explode(",", $_POST["disallow_options$i"]);
             }
 
             $disallowarr[] = [
@@ -809,7 +799,7 @@ class ProductPriceConfig extends Module
                 'disallow_options' => $disallow_options,
             ];
         }
-
+        
         // ===== SAVE =====
         $rule_list->name = $rule_name;
         $rule_list->id_product = $id_product;
@@ -1799,7 +1789,7 @@ class ProductPriceConfig extends Module
                     'cols' => 60,
                     'rows' => 8,
                     'class' => 'rte',        // enable RTE class
-                    'autoload_rte' => true, // ensure CKEditor/autoload runs so HTML is preserved
+                    //'autoload_rte' => true, // ensure CKEditor/autoload runs so HTML is preserved
                     'hint' => $this->l('Paste the TrustedShops / eTrusted widget snippet here.')
                 ),
             ),
@@ -2547,10 +2537,31 @@ class ProductPriceConfig extends Module
         $price_wot = Tools::ps_round($price_wot, 2);
 
         $tax = $price_wot * ($product->tax_rate / 100);
+        $price_wot = Tools::ps_round($price_wot, 2);
+
+        // === OnlyPrint Special Prices — per-customer surcharge hook ===
+        try {
+            $op_results = Hook::exec('onlyprintAdjustProductDisplayPrice', array(
+                'id_product'  => (int)$params['id_product'],
+                'id_customer' => (isset($this->context->customer) && $this->context->customer->id) ? (int)$this->context->customer->id : 0,
+                'qty'         => (int)$price_weight['qty'],
+                'price_wot'   => (float)$price_wot,
+            ), null, true);
+            if (is_array($op_results)) {
+                foreach ($op_results as $op_resp) {
+                    if (is_numeric($op_resp)) {
+                        $price_wot = (float)$op_resp;
+                    }
+                }
+            }
+            $price_wot = Tools::ps_round($price_wot, 2);
+        } catch (Exception $e) { /* fail-safe: never break pga's pricing */ }
+        // === /OnlyPrint Special Prices ===
+
+        $tax = $price_wot * ($product->tax_rate / 100);
         $tax = Tools::ps_round($tax, 2);
 
-        $total = $price_wot + $tax;
-        // print('price:'.$price_wot);
+        $total = $price_wot + $tax;        // print('price:'.$price_wot);
         // print('tax:'.$tax);
         // print('total:'.$total);
         $qty = $price_weight['qty'];
@@ -2627,6 +2638,7 @@ class ProductPriceConfig extends Module
                     }
                 } elseif ($varObj->type == 2) {
                     $id_option = $params['variable_' . $data['id_product_variable']];
+
                     $option = new KDOption($id_option, (int)$this->context->language->id);
                     $value_price = $option->price;
                     $value_weight = $option->weight;
@@ -2700,7 +2712,7 @@ class ProductPriceConfig extends Module
         $formula_price = str_replace("[", "", $formula_price);
         $formula_price = str_replace("]", "", $formula_price);
         $formula_price = preg_replace('/[A-Z][a-z]+/', '0', $formula_price);
-
+//echo $formula_price;
         if ($formula_price) {
             $price_wot = $m->evaluate($formula_price);
         }
@@ -2781,25 +2793,26 @@ class ProductPriceConfig extends Module
 
     public function ajaxAddToCart($params)
     {
+        // Thin wrapper for backward-compatible AJAX: call processAddToCart and return the array.
+        // The caller (HTTP front-controller) should JSON-encode and output the result when serving an AJAX request.
+        $send =  $this->processAddToCart($params);
+
+        die(json_encode($send));
+        
+    }
+
+    /**
+     * In-process version of ajaxAddToCart. Returns an array with keys like 'error' and 'id_customization'.
+     * This allows other modules (eg. web2print) to call this method directly instead of relying on an HTTP
+     * request. Keeps same behavior as previous ajaxAddToCart but without echo/die.
+     */
+    public function processAddToCart($params)
+    {
         //ini_set('display_errors', 1);
         //ini_set('display_startup_errors', 1);
         //error_reporting(E_ALL);
 
         $priceFormatter = new PriceFormatter();
-
-
-        $product_setting = new KDProductSetting($params['id_product_setting']);
-        $product = new Product($params['id_product'], false, (int)$this->context->language->id);
-
-        $id_product_attribute = $params['id_product_attribute'];
-        $price_weight = $this->getCalculatedProductPriceWeight($params);
-        $price_wot = $price_weight['price_wot_dis'];
-
-        if ($price_wot == 0) {
-            $send['error'] = $this->l("Bitte wählen Sie nur aus den verfügbaren Optionen");
-            die(json_encode($send));
-        }
-
         if (isset($params['id_cart']) && $params['id_cart']) {
             $this->context->cookie->id_cart = (int) $params['id_cart'];
             $this->context->cart = new Cart($params['id_cart']);
@@ -2810,21 +2823,28 @@ class ProductPriceConfig extends Module
             $this->context->cookie->id_cart = (int) $this->context->cart->id;
         }
 
+        $product_setting = new KDProductSetting($params['id_product_setting']);
+        $product = new Product($params['id_product'], false, (int)$this->context->language->id);
+
+        $id_product_attribute = $params['id_product_attribute'];
+        $price_weight = $this->getCalculatedProductPriceWeight($params);
+        $price_wot = $price_weight['price_wot_dis'];
+
+        $send = [];
+        if ($price_wot == 0) {
+            $send['error'] = $this->l("Bitte wählen Sie nur aus den verfügbaren Optionen");
+            
+            return $send;
+        }
+
         if (isset($params['id_customization']) && $params['id_customization']) {
             //$this->context->cart->deleteProduct($product->id, $id_product_attribute, (int) $params['id_customization']);
         }
 
-
         $id_customization = $this->context->cart->saveCustomization($product->id, $id_product_attribute);
-        // $id_customization = $params['id_customization'];
 
-        // $tax = $price_wot * ($product->tax_rate / 100);
-        // $total = $price_wot + $tax;
-
-        // $total_weight = 1.2;
         $total_weight = $price_weight['weight'];
         $total_thickness = $price_weight['thickness'];
-
 
         $available_product_variables = $this->db->executeS('
             SELECT p.*, pl.name 
@@ -2846,10 +2866,11 @@ class ProductPriceConfig extends Module
         $count = 1;
         foreach ($available_product_variables as $data) {
             // if(isset($params['variable_'.$data['id_product_variable']]) AND !empty($params['variable_'.$data['id_product_variable']])){
-            if (isset($params['variable_' . $data['id_product_variable']])) {
-                if (!$data['active']) {
+            if (!$data['active']) {
                     continue;
                 }
+            if (isset($params['variable_' . $data['id_product_variable']])) {
+                
                 $count++;
                 $value_price = '';
                 $varObj = new KDVariable($data['id_variable'], (int)$this->context->language->id);
@@ -2896,35 +2917,7 @@ class ProductPriceConfig extends Module
         }
         $send['id_customization'] = $id_customization;
 
-        if (isset($params['draft_code']) && $params['draft_code']) {
-            $draft_code = $params['draft_code'];
-            $customization_data = json_encode($params);
-            $sql = new DbQuery();
-            $sql->select('id_webprint_draft');
-            $sql->from('webprint_draft');
-            $sql->where('draft_code = "' . $draft_code . '"');
-            $id_webprint_draft = Db::getInstance()->getValue($sql);
-            if ($id_webprint_draft) {
-                $update_values = [
-                    'current_status' => 'in-cart',
-                    'id_customization' => $id_customization,
-                    'customization_data' => $customization_data
-                ];
-
-                Db::getInstance()->update(
-                    'webprint_draft',
-                    $update_values,
-                    'id_webprint_draft=' . $id_webprint_draft
-                );
-                //echo '<script>top.location.href = "/winkelmandje?action=show";</script>';
-                // die(Tools::jsonEncode([
-                //     'redirect' => $this->context->link->getPageLink('cart', true),
-                // ]));
-                sleep(3);
-                Tools::redirect('cart?action=show');
-            }
-        }
-        die(json_encode($send));
+        return $send;
     }
 
     public function ajaxGetUnitPrice($params)
