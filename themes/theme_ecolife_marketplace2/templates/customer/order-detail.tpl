@@ -29,6 +29,14 @@
 {/block}
 
 {block name='page_content'}
+  {if $cookie.reorder_error}
+    <div class="alert alert-danger" role="alert">
+      {$cookie.reorder_error nofilter}
+    </div>
+    {* Clear the cookie so the message only shows once *}
+    {assign var='clear_reorder_error' value={$cookie->__unset('reorder_error')}}
+  {/if}
+  
   {block name='order_infos'}
     <div id="order-infos">
       <div class="box">

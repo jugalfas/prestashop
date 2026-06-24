@@ -238,6 +238,10 @@ class ProductPriceConfig extends Module
             Db::getInstance()->execute($sql11);
             Db::getInstance()->execute($sql12);
 
+            if (!$this->installKdCustomCartDataTable()) {
+                return false;
+            }
+
             $id_tab = Tab::getIdFromClassName('AdminCatalog');
             $this->installModuleTab('AdminProductPriceConfigHome', array((int)$this->context->language->id => 'Manage Product Price'), 0);
             $id_tab = Tab::getIdFromClassName('AdminProductPriceConfigHome');
@@ -2793,64 +2797,77 @@ class ProductPriceConfig extends Module
 
     public function ajaxAddToCart($params)
     {
-        // Thin wrapper for backward-compatible AJAX: call processAddToCart and return the array.
-        // The caller (HTTP front-controller) should JSON-encode and output the result when serving an AJAX request.
-        $send =  $this->processAddToCart($params);
-
+        $send = $this->processAddToCart($params);
         die(json_encode($send));
-        
     }
 
     /**
-     * In-process version of ajaxAddToCart. Returns an array with keys like 'error' and 'id_customization'.
-     * This allows other modules (eg. web2print) to call this method directly instead of relying on an HTTP
-     * request. Keeps same behavior as previous ajaxAddToCart but without echo/die.
+     * In-process add-to-cart: ensures cart, builds customization, persists params for reorder.
      */
     public function processAddToCart($params)
     {
-        //ini_set('display_errors', 1);
-        //ini_set('display_startup_errors', 1);
-        //error_reporting(E_ALL);
+        $this->ensureKdCustomCartDataTable();
+        $this->ensureContextCart($params);
 
-        $priceFormatter = new PriceFormatter();
-        if (isset($params['id_cart']) && $params['id_cart']) {
-            $this->context->cookie->id_cart = (int) $params['id_cart'];
-            $this->context->cart = new Cart($params['id_cart']);
-            unset($params['id_cart']);
-            //$this->context->cart->deleteProduct($product->id, $id_product_attribute, (int) $params['id_customization']);
-        } elseif (!$this->context->cart->id && isset($_COOKIE[$this->context->cookie->getName()])) {
-            $this->context->cart->add();
-            $this->context->cookie->id_cart = (int) $this->context->cart->id;
+        $result = $this->buildCustomProductCustomization($params);
+        if (!empty($result['error'])) {
+            return $result;
         }
 
-        $product_setting = new KDProductSetting($params['id_product_setting']);
-        $product = new Product($params['id_product'], false, (int)$this->context->language->id);
+        $this->saveKdCustomCartData(
+            (int) $this->context->cart->id,
+            null,
+            (int) $params['id_product'],
+            (int) $params['id_product_attribute'],
+            (int) $result['id_customization'],
+            $params
+        );
 
-        $id_product_attribute = $params['id_product_attribute'];
+        return $result;
+    }
+
+    /**
+     * Core customization logic shared by AJAX add-to-cart and native reorder.
+     * Expects $this->context->cart to exist. Does not persist params or output JSON.
+     */
+    public function buildCustomProductCustomization(array $params)
+    {
+        if (empty($params['id_product']) || empty($params['id_product_setting'])) {
+            return ['error' => $this->l('Invalid product configuration.')];
+        }
+
+        if (!$this->context->cart || !(int) $this->context->cart->id) {
+            return ['error' => $this->l('Cart is not available.')];
+        }
+
+        $product_setting = new KDProductSetting((int) $params['id_product_setting']);
+        if (!Validate::isLoadedObject($product_setting)) {
+            return ['error' => $this->l('Invalid product configuration.')];
+        }
+
+        $product = new Product((int) $params['id_product'], false, (int) $this->context->language->id);
+        if (!Validate::isLoadedObject($product)) {
+            return ['error' => $this->l('Product not found.')];
+        }
+
+        $id_product_attribute = (int) $params['id_product_attribute'];
         $price_weight = $this->getCalculatedProductPriceWeight($params);
         $price_wot = $price_weight['price_wot_dis'];
 
-        $send = [];
         if ($price_wot == 0) {
-            $send['error'] = $this->l("Bitte wählen Sie nur aus den verfügbaren Optionen");
-            
-            return $send;
-        }
-
-        if (isset($params['id_customization']) && $params['id_customization']) {
-            //$this->context->cart->deleteProduct($product->id, $id_product_attribute, (int) $params['id_customization']);
+            return ['error' => $this->l('Bitte wählen Sie nur aus den verfügbaren Optionen')];
         }
 
         $id_customization = $this->context->cart->saveCustomization($product->id, $id_product_attribute);
-
         $total_weight = $price_weight['weight'];
         $total_thickness = $price_weight['thickness'];
 
         $available_product_variables = $this->db->executeS('
-            SELECT p.*, pl.name 
+            SELECT p.*, pl.name
             FROM ' . _DB_PREFIX_ . 'product_variable p
-            LEFT JOIN `' . _DB_PREFIX_ . 'product_variable_lang` pl ON (pl.`id_product_variable`= p.`id_product_variable` AND pl.`id_lang` = ' . (int)$this->context->language->id . ' )
-            WHERE p.id_product = ' . (int)$params['id_product'] . '
+            LEFT JOIN `' . _DB_PREFIX_ . 'product_variable_lang` pl
+                ON (pl.`id_product_variable` = p.`id_product_variable` AND pl.`id_lang` = ' . (int) $this->context->language->id . ')
+            WHERE p.id_product = ' . (int) $params['id_product'] . '
             ORDER BY p.`id_product_variable`
         ');
         $variable_position = json_decode($product_setting->variable_position, true);
@@ -2862,62 +2879,419 @@ class ProductPriceConfig extends Module
                 return $pos_a - $pos_b;
             });
         }
-        $send['error'] = false;
-        $count = 1;
+
+        $send = ['error' => false];
         foreach ($available_product_variables as $data) {
-            // if(isset($params['variable_'.$data['id_product_variable']]) AND !empty($params['variable_'.$data['id_product_variable']])){
             if (!$data['active']) {
-                    continue;
-                }
-            if (isset($params['variable_' . $data['id_product_variable']])) {
-                
-                $count++;
-                $value_price = '';
-                $varObj = new KDVariable($data['id_variable'], (int)$this->context->language->id);
-                if ($varObj->type == 2) {
-                    $id_option = $params['variable_' . $data['id_product_variable']];
-                    $option = new KDOption($id_option, (int)$this->context->language->id);
-                    $value_price = $option->price;
-                    $value_weight = $option->weight;
-                    $value = $option->label;
-
-                    $options = $this->db->getValue('
-                        SELECT p.options
-                        FROM ' . _DB_PREFIX_ . 'product_variable p
-                        WHERE p.id_product_variable = ' . (int)$data['id_product_variable'] . '
-                    ');
-
-                    $options = json_decode($options, true);
-                    if (in_array($id_option, $options)) {
-                        $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value);
-                    } else {
-                        $send['options'] = $options;
-                        $send['id_option'] = $id_option;
-                        $send['error'] = $this->l('Please select only from avalible options');
-                    }
-                } elseif ($varObj->type == 1) {
-                    $value = $params['variable_' . $data['id_product_variable']];
-                    $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value, $price_wot, $total_weight);
-                } elseif ($varObj->type == 3) {
-                    $value = $varObj->fixed_price;
-                    $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value);
-                } elseif ($varObj->type == 4) {
-                    $value = $params['variable_' . $data['id_product_variable']];
-                    $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value);
-                } elseif ($varObj->type == 5) { // type 5 is for custom text input
-                    $value = $params['variable_' . $data['id_product_variable']];
-                    $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value);
-                } elseif ($varObj->type == 6) { // type 6 is for thickness text input
-                    $value = $total_thickness;
-                    $this->context->cart->addCustomizationData($id_customization, $data['id_product_variable'], Product::CUSTOMIZE_TEXTFIELD, $value);
-                }
-            } else {
+                continue;
+            }
+            if (!isset($params['variable_' . $data['id_product_variable']])) {
                 $send['error'] = $this->l('Please select all options');
+
+                return $send;
+            }
+
+            $varObj = new KDVariable($data['id_variable'], (int) $this->context->language->id);
+            if ($varObj->type == 2) {
+                $id_option = (int) $params['variable_' . $data['id_product_variable']];
+                $option = new KDOption($id_option, (int) $this->context->language->id);
+                $value = $option->label;
+                $options = json_decode($this->db->getValue('
+                    SELECT p.options
+                    FROM ' . _DB_PREFIX_ . 'product_variable p
+                    WHERE p.id_product_variable = ' . (int) $data['id_product_variable']
+                ), true);
+
+                if (!is_array($options) || !in_array($id_option, $options)) {
+                    return [
+                        'error' => $this->l('Please select only from avalible options'),
+                        'options' => $options,
+                        'id_option' => $id_option,
+                    ];
+                }
+                $this->context->cart->addCustomizationData(
+                    $id_customization,
+                    $data['id_product_variable'],
+                    Product::CUSTOMIZE_TEXTFIELD,
+                    $value
+                );
+            } elseif ($varObj->type == 1) {
+                $value = $params['variable_' . $data['id_product_variable']];
+                $this->context->cart->addCustomizationData(
+                    $id_customization,
+                    $data['id_product_variable'],
+                    Product::CUSTOMIZE_TEXTFIELD,
+                    $value,
+                    $price_wot,
+                    $total_weight
+                );
+            } elseif ($varObj->type == 3) {
+                $value = $varObj->fixed_price;
+                $this->context->cart->addCustomizationData(
+                    $id_customization,
+                    $data['id_product_variable'],
+                    Product::CUSTOMIZE_TEXTFIELD,
+                    $value
+                );
+            } elseif ($varObj->type == 4 || $varObj->type == 5) {
+                $value = $params['variable_' . $data['id_product_variable']];
+                $this->context->cart->addCustomizationData(
+                    $id_customization,
+                    $data['id_product_variable'],
+                    Product::CUSTOMIZE_TEXTFIELD,
+                    $value
+                );
+            } elseif ($varObj->type == 6) {
+                $this->context->cart->addCustomizationData(
+                    $id_customization,
+                    $data['id_product_variable'],
+                    Product::CUSTOMIZE_TEXTFIELD,
+                    $total_thickness
+                );
             }
         }
-        $send['id_customization'] = $id_customization;
 
-        return $send;
+        return [
+            'error' => false,
+            'id_customization' => (int) $id_customization,
+            'price_wot' => $price_wot,
+            'weight' => $total_weight,
+            'thickness' => $total_thickness,
+        ];
+    }
+
+    /**
+     * Native reorder (Order History → Reorder): rebuild customizations from saved params.
+     */
+    public function processCustomReorder($idOrder, OrderController $controller)
+    {
+        $this->ensureKdCustomCartDataTable();
+
+        $idOrder = (int) $idOrder;
+        $order = new Order($idOrder);
+        if (!Validate::isLoadedObject($order)) {
+            $controller->errors[] = $this->l('Order not found.');
+            Tools::redirect($this->context->link->getPageLink('history', true));
+
+            return;
+        }
+
+        if ((int) $order->id_customer !== (int) $this->context->customer->id) {
+            $controller->errors[] = $this->l('You do not have permission to reorder this order.');
+            Tools::redirect($this->context->link->getPageLink('history', true));
+
+            return;
+        }
+
+        $cart = new Cart();
+        $cart->id_customer = (int) $this->context->customer->id;
+        $cart->id_lang = (int) $this->context->language->id;
+        $cart->id_currency = (int) $this->context->currency->id;
+        $cart->id_shop = (int) $this->context->shop->id;
+        $cart->id_shop_group = (int) $this->context->shop->id_shop_group;
+        if (!$cart->add()) {
+            $controller->errors[] = $this->l('Unable to create a new cart.');
+            Tools::redirect($this->context->link->getPageLink('history', true));
+
+            return;
+        }
+
+        $this->context->cart = $cart;
+        $this->context->cookie->id_cart = (int) $cart->id;
+
+        $addedCount = 0;
+        $skippedMessages = [];
+
+        foreach ($order->getProducts() as $orderProduct) {
+            $idProduct = (int) $orderProduct['product_id'];
+            $idProductAttribute = (int) $orderProduct['product_attribute_id'];
+            $idCustomization = (int) $orderProduct['id_customization'];
+            $orderQty = (int) $orderProduct['product_quantity'];
+
+            $settingRow = KDProductSetting::getByProductId($idProduct);
+            if (empty($settingRow['id_product_setting'])) {
+                if ($this->context->cart->updateQty($orderQty, $idProduct, $idProductAttribute, 0, 'up')) {
+                    ++$addedCount;
+                } else {
+                    $skippedMessages[] = sprintf(
+                        $this->l('Could not add "%s" to your cart.'),
+                        $orderProduct['product_name']
+                    );
+                }
+                continue;
+            }
+
+            $params = $this->getReorderParamsForOrderLine($order, $idProduct, $idProductAttribute, $idCustomization);
+            if (!$params) {
+                $skippedMessages[] = sprintf(
+                    $this->l('Could not restore configuration for "%s".'),
+                    $orderProduct['product_name']
+                );
+                continue;
+            }
+
+            $params['id_product'] = $idProduct;
+            $params['id_product_attribute'] = $idProductAttribute;
+            if (empty($params['id_product_setting'])) {
+                $params['id_product_setting'] = (int) $settingRow['id_product_setting'];
+            }
+
+            $result = $this->buildCustomProductCustomization($params);
+            if (!empty($result['error'])) {
+                $skippedMessages[] = sprintf(
+                    '%s: %s',
+                    $orderProduct['product_name'],
+                    is_string($result['error']) ? $result['error'] : $this->l('Configuration error')
+                );
+                continue;
+            }
+
+            if ($orderQty > 1) {
+                $this->context->cart->updateQty(
+                    $orderQty - 1,
+                    $idProduct,
+                    $idProductAttribute,
+                    (int) $result['id_customization'],
+                    'up'
+                );
+            }
+
+            $this->saveKdCustomCartData(
+                (int) $cart->id,
+                null,
+                $idProduct,
+                $idProductAttribute,
+                (int) $result['id_customization'],
+                $params
+            );
+            ++$addedCount;
+        }
+
+        CartRule::autoAddToCart($this->context);
+        $this->context->cookie->write();
+
+        if ($addedCount === 0) {
+            if (empty($skippedMessages)) {
+                $skippedMessages[] = $this->l('No products could be reordered.');
+            }
+            $this->context->cookie->reorder_error = urlencode(implode('<br>', $skippedMessages));
+            $this->context->cookie->write();
+            Tools::redirect($this->context->link->getPageLink('history', true));
+
+            return;
+        }
+
+        if (!empty($skippedMessages)) {
+            $this->context->cookie->reorder_error = urlencode(implode('<br>', $skippedMessages));
+            $this->context->cookie->write();
+        }
+
+        Tools::redirect($this->context->link->getPageLink('cart', true, null, 'action=show'));
+    }
+
+    public function hookActionValidateOrder($params)
+    {
+        if (!isset($params['order'], $params['cart']) || !Validate::isLoadedObject($params['order']) || !Validate::isLoadedObject($params['cart'])) {
+            return;
+        }
+
+        $this->ensureKdCustomCartDataTable();
+
+        Db::getInstance()->update(
+            'kd_custom_cart_data',
+            [
+                'id_order' => (int) $params['order']->id,
+                'date_upd' => date('Y-m-d H:i:s'),
+            ],
+            'id_cart = ' . (int) $params['cart']->id . ' AND (id_order IS NULL OR id_order = 0)'
+        );
+    }
+
+    protected function installKdCustomCartDataTable()
+    {
+        $sql = 'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'kd_custom_cart_data` (
+            `id_kd_custom_cart_data` int(10) unsigned NOT NULL AUTO_INCREMENT,
+            `id_cart` int(10) unsigned NOT NULL,
+            `id_order` int(10) unsigned DEFAULT NULL,
+            `id_product` int(10) unsigned NOT NULL,
+            `id_product_attribute` int(10) unsigned NOT NULL DEFAULT 0,
+            `id_customization` int(10) unsigned NOT NULL,
+            `customization_data` longtext NOT NULL,
+            `date_add` datetime NOT NULL,
+            `date_upd` datetime NOT NULL,
+            PRIMARY KEY (`id_kd_custom_cart_data`),
+            KEY `id_cart` (`id_cart`),
+            KEY `id_order` (`id_order`),
+            KEY `id_customization` (`id_customization`),
+            KEY `id_product` (`id_product`, `id_product_attribute`)
+        ) ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8';
+
+        return Db::getInstance()->execute($sql);
+    }
+
+    protected function ensureKdCustomCartDataTable()
+    {
+        static $checked = false;
+        if ($checked) {
+            return true;
+        }
+        $checked = true;
+
+        return $this->installKdCustomCartDataTable();
+    }
+
+    protected function saveKdCustomCartData($idCart, $idOrder, $idProduct, $idProductAttribute, $idCustomization, array $params)
+    {
+        $this->ensureKdCustomCartDataTable();
+        $now = date('Y-m-d H:i:s');
+        $data = [
+            'id_cart' => (int) $idCart,
+            'id_order' => $idOrder ? (int) $idOrder : null,
+            'id_product' => (int) $idProduct,
+            'id_product_attribute' => (int) $idProductAttribute,
+            'id_customization' => (int) $idCustomization,
+            'customization_data' => json_encode($params),
+            'date_add' => $now,
+            'date_upd' => $now,
+        ];
+
+        return Db::getInstance()->insert('kd_custom_cart_data', $data);
+    }
+
+    protected function getKdCustomCartDataRow($idOrder, $idProduct, $idProductAttribute, $idCustomization = 0)
+    {
+        $sql = new DbQuery();
+        $sql->select('*');
+        $sql->from('kd_custom_cart_data');
+        $sql->where('id_order = ' . (int) $idOrder);
+        $sql->where('id_product = ' . (int) $idProduct);
+        $sql->where('id_product_attribute = ' . (int) $idProductAttribute);
+        if ($idCustomization) {
+            $sql->where('id_customization = ' . (int) $idCustomization);
+        }
+        $sql->orderBy('id_kd_custom_cart_data DESC');
+
+        return Db::getInstance()->getRow($sql);
+    }
+
+    /**
+     * Load saved add-to-cart params for reorder, or rebuild from order customization fields.
+     */
+    protected function getReorderParamsForOrderLine(Order $order, $idProduct, $idProductAttribute, $idCustomization)
+    {
+        $row = $this->getKdCustomCartDataRow((int) $order->id, $idProduct, $idProductAttribute, $idCustomization);
+        if ($row && !empty($row['customization_data'])) {
+            $params = json_decode($row['customization_data'], true);
+            if (is_array($params)) {
+                unset($params['id_cart'], $params['id_customization']);
+
+                return $params;
+            }
+        }
+
+        return $this->buildReorderParamsFromOrderCustomization($order, $idProduct, $idProductAttribute, $idCustomization);
+    }
+
+    /**
+     * Fallback for orders placed before kd_custom_cart_data existed.
+     */
+    protected function buildReorderParamsFromOrderCustomization(Order $order, $idProduct, $idProductAttribute, $idCustomization)
+    {
+        $settingRow = KDProductSetting::getByProductId((int) $idProduct);
+        if (empty($settingRow['id_product_setting'])) {
+            return null;
+        }
+
+        $storedValues = [];
+        if ($idCustomization) {
+            $customizedDatas = Product::getAllCustomizedDatas(
+                (int) $order->id_cart,
+                null,
+                true,
+                (int) $order->id_shop,
+                (int) $idCustomization
+            );
+            if (isset($customizedDatas[$idProduct][$idProductAttribute])) {
+                foreach ($customizedDatas[$idProduct][$idProductAttribute] as $byAddress) {
+                    foreach ($byAddress as $byCustomization) {
+                        if (!isset($byCustomization['datas'][Product::CUSTOMIZE_TEXTFIELD])) {
+                            continue;
+                        }
+                        foreach ($byCustomization['datas'][Product::CUSTOMIZE_TEXTFIELD] as $field) {
+                            $storedValues[(int) $field['index']] = $field['value'];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (empty($storedValues)) {
+            return null;
+        }
+
+        $params = [
+            'id_product' => (int) $idProduct,
+            'id_product_attribute' => (int) $idProductAttribute,
+            'id_product_setting' => (int) $settingRow['id_product_setting'],
+        ];
+
+        $variables = $this->db->executeS('
+            SELECT p.*
+            FROM ' . _DB_PREFIX_ . 'product_variable p
+            WHERE p.id_product = ' . (int) $idProduct . '
+            AND p.active = 1
+        ');
+
+        foreach ($variables as $data) {
+            $index = (int) $data['id_product_variable'];
+            if (!isset($storedValues[$index])) {
+                continue;
+            }
+            $storedValue = $storedValues[$index];
+            $varObj = new KDVariable((int) $data['id_variable'], (int) $this->context->language->id);
+
+            if ($varObj->type == 2) {
+                $optionId = $this->findOptionIdByLabel($data, $storedValue);
+                if (!$optionId) {
+                    return null;
+                }
+                $params['variable_' . $index] = $optionId;
+            } elseif (in_array((int) $varObj->type, [1, 4, 5, 6], true)) {
+                $params['variable_' . $index] = $storedValue;
+            } elseif ((int) $varObj->type == 3) {
+                $params['variable_' . $index] = $varObj->fixed_price;
+            }
+        }
+
+        return $params;
+    }
+
+    protected function findOptionIdByLabel(array $productVariable, $label)
+    {
+        $options = json_decode($productVariable['options'], true);
+        if (!is_array($options)) {
+            return 0;
+        }
+        foreach ($options as $idOption) {
+            $option = new KDOption((int) $idOption, (int) $this->context->language->id);
+            if ($option->label == $label) {
+                return (int) $idOption;
+            }
+        }
+
+        return 0;
+    }
+
+    protected function ensureContextCart(array &$params)
+    {
+        if (!empty($params['id_cart'])) {
+            $this->context->cookie->id_cart = (int) $params['id_cart'];
+            $this->context->cart = new Cart((int) $params['id_cart']);
+            unset($params['id_cart']);
+        } elseif (!(int) $this->context->cart->id) {
+            $this->context->cart->add();
+            $this->context->cookie->id_cart = (int) $this->context->cart->id;
+        }
     }
 
     public function ajaxGetUnitPrice($params)
