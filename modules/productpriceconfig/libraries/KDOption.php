@@ -37,6 +37,15 @@ class KDOption extends ObjectModel
 	public $position;
 	public $id_variable;
 
+	 /**
+     * Printformer name for integrations (optional)
+     * @var string
+     */
+    public $printformer_name;
+	public $color;
+	
+
+
 
 	public static $definition = array(
 		'table' => 'option',
@@ -50,6 +59,8 @@ class KDOption extends ObjectModel
 			'price' =>                array('type' => self::TYPE_FLOAT, 'validate' => 'isPrice', 'required' => false),
 			'position' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
 			'active' =>                array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
+			'printformer_name' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 255),
+			'color' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 255),
 			'label' =>	array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isCleanHtml', 'size' => 255, 'required' => true),
 		)
 	);
@@ -229,7 +240,7 @@ class KDOption extends ObjectModel
 		Db::getInstance()->execute('SET @i = -1', false);
 		$sql = 'UPDATE `' . _DB_PREFIX_ . 'option` SET `position` = @i:=@i+1 WHERE';
 
-		if ($useLastAttribute) {
+		if ($useLastOption) {
 			$sql .= ' `id_option` != ' . (int) $this->id . ' AND';
 		}
 

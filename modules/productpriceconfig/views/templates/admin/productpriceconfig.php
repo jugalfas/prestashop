@@ -113,6 +113,7 @@ class ProductPriceConfig extends Module
             && $this->registerHook('displayFooterProduct')
             && $this->registerHook('displayQuoteRequest')
             && $this->registerHook('displayReassurance')
+
             && $this->registerHook('displayCartExtraProductActions')
             && $this->registerHook('displayMyAccountOrder')
             && $this->registerHook('displayOrderDetail')
@@ -120,7 +121,6 @@ class ProductPriceConfig extends Module
             $sql1 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "variable` (
                 `id_variable`   BIGINT(20)  UNSIGNED    NOT NULL AUTO_INCREMENT,
                 `name` varchar(125) NOT NULL,
-                `printformer_name` varchar(255) DEFAULT NULL,
                 `type` varchar(255) NOT NULL,
                 `fixed_price` int(10) unsigned NOT NULL DEFAULT \'0\',
                 `minimum` int(10) unsigned NOT NULL DEFAULT \'0\',
@@ -142,8 +142,7 @@ class ProductPriceConfig extends Module
 
             $sql3 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "option` (
               `id_option` int(10) unsigned NOT NULL AUTO_INCREMENT,
-              `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT \'0\',
-              `printformer_name` varchar(255) DEFAULT NULL,
+			  `id_variable` INT(10)     UNSIGNED    NOT NULL DEFAULT \'0\',
               `price` decimal(20,4) NOT NULL DEFAULT \'0.00\',
               `position` int(10) unsigned NOT NULL DEFAULT \'0\',
               `weight` decimal(20,2) NOT NULL DEFAULT \'0.00\',
@@ -230,18 +229,18 @@ class ProductPriceConfig extends Module
                 PRIMARY KEY (`id`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
-            // Db::getInstance()->execute($sql1);
-            // Db::getInstance()->execute($sql2);
-            // Db::getInstance()->execute($sql3);
-            // Db::getInstance()->execute($sql4);
-            // Db::getInstance()->execute($sql5);
-            // Db::getInstance()->execute($sql6);
-            // Db::getInstance()->execute($sql7);
-            // Db::getInstance()->execute($sql8);
-            // Db::getInstance()->execute($sql9);
-            // Db::getInstance()->execute($sql10);
-            // Db::getInstance()->execute($sql11);
-            // Db::getInstance()->execute($sql12);
+            Db::getInstance()->execute($sql1);
+            Db::getInstance()->execute($sql2);
+            Db::getInstance()->execute($sql3);
+            Db::getInstance()->execute($sql4);
+            Db::getInstance()->execute($sql5);
+            Db::getInstance()->execute($sql6);
+            Db::getInstance()->execute($sql7);
+            Db::getInstance()->execute($sql8);
+            Db::getInstance()->execute($sql9);
+            Db::getInstance()->execute($sql10);
+            Db::getInstance()->execute($sql11);
+            Db::getInstance()->execute($sql12);
 
             $id_tab = Tab::getIdFromClassName('AdminCatalog');
             $this->installModuleTab('AdminProductPriceConfigHome', array((int)$this->context->language->id => 'Manage Product Price'), 0);
@@ -651,43 +650,47 @@ class ProductPriceConfig extends Module
 
     public function saveTieredPrice()
     {
+
         $values = array();
         $qty = array();
         $price = array();
+        $pages = array();
+        $printside = array();
         $id_product = Tools::getValue('id_product');
         $row = KDProductSetting::getByProductId($id_product);
 
         $product_setting = new KDProductSetting($row['id_product_setting']);
 
-        foreach (array('qty', 'price') as $type) {
-            ${$type} = Tools::getValue($type);
-            if (!is_array(${$type})) ${$type} = array();
+        foreach (array('qty',  'price') as $type) {
+            if (Tools::getValue($type) && is_array(${$type} = Tools::getValue($type)) && count(${$type})) {
+                ${$type} = Tools::getValue($type);
+            }
         }
 
-        // tier basis formula (optional) - stored inside the tiered JSON payload
-        $tier_basis_formula = Tools::getValue('tier_basis_formula', '');
+        // optional new inputs: pages and printside (arrays aligned with qty/price rows)
+        foreach (array('pages', 'printside') as $type) {
+            if (Tools::getValue($type) && is_array(${$type} = Tools::getValue($type)) && count(${$type})) {
+                ${$type} = Tools::getValue($type);
+            }
+        }
 
         if ($total = count($qty)) {
             for ($i = 0; $i < $total; $i++) {
-                $values[$i] = array();
-                $values[$i]['from_quantity'] = (isset($qty[$i]) ? (int) $qty[$i] : 0);
-                // price now represents multiplier percentage (e.g., 110 => 110%)
-                $values[$i]['price'] = (isset($price[$i]) ? (float) $price[$i] : 0);
+                $values[$i]['from_quantity'] = (int)$qty[$i];
+                $values[$i]['price'] = (float)$price[$i];
+                // include pages and printside if provided (allow empty for wildcard)
+                $values[$i]['pages'] = isset($pages[$i]) && $pages[$i] !== '' ? (int)$pages[$i] : '';
+                $values[$i]['printside'] = isset($printside[$i]) && $printside[$i] !== '' ? pSQL($printside[$i]) : '';
             }
         }
 
         $product_setting->id_product = $id_product;
 
-        // store both basis_formula and tiers in one JSON field
-        $payload = array(
-            'basis_formula' => $tier_basis_formula,
-            'tiers' => $values,
-        );
-
-        $product_setting->tiered = json_encode($payload);
+        $product_setting->tiered = json_encode($values);
         $product_setting->save();
         return $product_setting->id;
     }
+
     public function saveBanComb()
     {
         $rule = array();
@@ -1623,22 +1626,33 @@ class ProductPriceConfig extends Module
 
         $currentIndex = $this->context->link->getAdminLink('AdminModules', false) . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules');
 
-        $decoded = json_decode($tiered_price, true);
-        $tier_basis_formula = '';
-        $tiers = array();
-        if (is_array($decoded) && isset($decoded['tiers'])) {
-            $tier_basis_formula = isset($decoded['basis_formula']) ? $decoded['basis_formula'] : '';
-            $tiers = $decoded['tiers'];
-        } elseif (is_array($decoded)) {
-            // legacy: tiered_price was a simple array of tiers
-            $tiers = $decoded;
-        }
+        $tiered_price = json_decode($tiered_price, true);
 
         // Attempt to load printside options for this product so admin can pick an option id
-        $id_product_setting = (int) Tools::getValue('id_product_setting', 0);
-        $product_setting = new KDProductSetting($id_product_setting);
-        
-
+        $printside_options = [];
+        $id_product = (int) Tools::getValue('id_product', 0);
+        if ($id_product) {
+            // find product_variable for this product where variable.name normalized == 'printside'
+            $sqlPv = 'SELECT pv.* , v.name as var_name FROM ' . _DB_PREFIX_ . 'product_variable pv LEFT JOIN ' . _DB_PREFIX_ . 'variable v ON (v.id_variable = pv.id_variable) WHERE pv.id_product = ' . (int)$id_product;
+            $pvs = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sqlPv);
+            foreach ($pvs as $pv) {
+                $varName = strtolower(str_replace(' ', '', $pv['var_name'] ?? ''));
+                if ($varName === 'printside') {
+                    $optionsJson = $pv['options'];
+                    $optionIds = @json_decode($optionsJson, true);
+                    if (is_array($optionIds) && count($optionIds)) {
+                        $ids = implode(',', array_map('intval', $optionIds));
+                        $sqlOpt = 'SELECT a.id_option, b.value as label FROM ' . _DB_PREFIX_ . 'option a LEFT JOIN ' . _DB_PREFIX_ . 'option_lang b ON (b.id_option = a.id_option AND b.id_lang = ' . (int)$this->context->language->id . ') WHERE a.id_option IN (' . pSQL($ids) . ') ORDER BY a.position';
+                        $opts = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($sqlOpt);
+                        foreach ($opts as $o) {
+                            $printside_options[] = ['id' => $o['id_option'], 'name' => $o['label'] ?: $o['id_option']];
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+print_r($printside_options);
         $this->context->smarty->assign(
             array(
                 'defaultCurrency' => Configuration::get('PS_CURRENCY_DEFAULT'),
@@ -1647,8 +1661,7 @@ class ProductPriceConfig extends Module
                 'currencies' => $currencies,
                 'currentIndex' => $currentIndex,
                 'currentToken' => Tools::getAdminTokenLite('AdminModules'),
-                'tiered_price' => $tiers,
-                'tier_basis_formula' => $tier_basis_formula,
+                'tiered_price' => $tiered_price,
                 'base_url' => $this->context->shop->getBaseURL(),
                 'language' => array(
                     'id_lang' => $language->id,
@@ -1660,7 +1673,9 @@ class ProductPriceConfig extends Module
             )
         );
 
-        
+        // pass printside options to template
+        $this->context->smarty->assign('printside_options', $printside_options);
+
         return $this->display(__FILE__, 'views/templates/admin/form_tiered_price.tpl');
         //return $this->createTemplate('form_option.tpl')->fetch();
 
@@ -2555,51 +2570,6 @@ class ProductPriceConfig extends Module
         return 0;
     }
 
-    /**
-     * // === OnlyPrint Special Prices — per-customer surcharge hook ===
-     * Apply OnlyPrint customer-specific pricing adjustments.
-     *
-     * @param int   $idProduct
-     * @param int   $qty
-     * @param float $priceWot Price without tax
-     *
-     * @return float
-     */
-    private function getAdjustedDisplayPrice($idProduct, $qty, $priceWot)
-    {
-        try {
-            $results = Hook::exec(
-                'onlyprintAdjustProductDisplayPrice',
-                array(
-                    'id_product'  => (int) $idProduct,
-                    'id_customer' => (isset($this->context->customer) && Validate::isLoadedObject($this->context->customer))
-                        ? (int) $this->context->customer->id
-                        : 0,
-                    'qty'         => (int) $qty,
-                    'price_wot'   => (float) $priceWot,
-                ),
-                null,
-                true
-            );
-
-            if (is_array($results)) {
-                foreach ($results as $response) {
-                    if (is_numeric($response)) {
-                        $priceWot = (float) $response;
-                    }
-                }
-            }
-
-            return Tools::ps_round((float) $priceWot, 2);
-
-        } catch (Exception $e) {
-            // Never break pricing because of a hook failure.
-            return Tools::ps_round((float) $priceWot, 2);
-        }
-    }
-
- 
-
     public function ajaxGetFilteredVariables($params)
     {
         $product = new Product($params['id_product'], true, (int)$this->context->language->id);
@@ -2612,9 +2582,8 @@ class ProductPriceConfig extends Module
         $tax = $price_wot * ($product->tax_rate / 100);
         $price_wot = Tools::ps_round($price_wot, 2);
 
-
         // === OnlyPrint Special Prices — per-customer surcharge hook ===
-        /* try {
+        try {
             $op_results = Hook::exec('onlyprintAdjustProductDisplayPrice', array(
                 'id_product'  => (int)$params['id_product'],
                 'id_customer' => (isset($this->context->customer) && $this->context->customer->id) ? (int)$this->context->customer->id : 0,
@@ -2629,16 +2598,8 @@ class ProductPriceConfig extends Module
                 }
             }
             $price_wot = Tools::ps_round($price_wot, 2);
-        } catch (Exception $e) { // fail-safe: never break pga's pricing  } */
+        } catch (Exception $e) { /* fail-safe: never break pga's pricing */ }
         // === /OnlyPrint Special Prices ===
-
-        $price_wot = $this->getAdjustedDisplayPrice(
-            (int) $params['id_product'],
-            (int) $price_weight['qty'],
-            (float) $price_wot
-        );
-
-       // echo $price_wot;
 
         $tax = $price_wot * ($product->tax_rate / 100);
         $tax = Tools::ps_round($tax, 2);
@@ -2672,7 +2633,7 @@ class ProductPriceConfig extends Module
         require_once(dirname(__FILE__) . "/expression.php");
         $m = new expression;
         $price_data = array();
-        $formula_width = $formula_price_evaluated = $formula_height = $thickness = $weight =  $shipping_price_per_pack = $qty = $formula_tiers = 0;
+        $formula_width = $formula_price_evaluated = $formula_height = $thickness = $weight =  $shipping_price_per_pack = $qty = 0;
         $priceFormatter = new PriceFormatter();
 
         $autosize_formula_string   = '#customsize#';
@@ -2688,18 +2649,6 @@ class ProductPriceConfig extends Module
         // $product = new Product($params['id_product'], true, (int)$this->context->language->id);
 
         $tiered_price = json_decode($product_setting->tiered, true);
-
-         // tiered_price may be stored as a payload: ['basis_formula' => string, 'tiers' => [...]]
-        $basis_formula = '';
-        $tiers = array();
-        if (is_array($tiered_price) && isset($tiered_price['tiers'])) {
-            $formula_tiers = isset($tiered_price['basis_formula']) ? $tiered_price['basis_formula'] : '';
-            $tiers = $tiered_price['tiers'];
-        } elseif (is_array($tiered_price)) {
-            // legacy format: treat as tiers array
-            $tiers = $tiered_price;
-        }
-
         $formula_price = $product_setting->formula_price;
         $formula_weight = $product_setting->formula_weight;
         $formula_thickness = $product_setting->formula_thickness;
@@ -2776,7 +2725,6 @@ class ProductPriceConfig extends Module
 
                 if ($value_price) {
                     $formula_price = str_replace($name, $value_price, $formula_price);
-                    $formula_tiers = str_replace($name, $value_price, $formula_tiers);
                 }
 
                 if ($value_weight) {
@@ -2819,16 +2767,11 @@ class ProductPriceConfig extends Module
         $formula_price = str_replace("[", "", $formula_price);
         $formula_price = str_replace("]", "", $formula_price);
         $formula_price = preg_replace('/[A-Z][a-z]+/', '0', $formula_price);
-        // echo '<pre>';
-        // print_r($params);
-        // echo '</pre>';
-        // echo 'formula '.$formula_price;
+        //echo 'formula '.$formula_price;
         if ($formula_price) {
             $price_wot = $m->evaluate($formula_price);
             $formula_price_evaluated = $price_wot;
         }
-
-        //echo $price_wot;
 
         if ($width_ship_price_factor || $height_ship_price_factor) {
             $final_ship_price_factor = min($width_ship_price_factor, $height_ship_price_factor);
@@ -2856,46 +2799,39 @@ class ProductPriceConfig extends Module
 
         $discount = 1;
 
-        // Evaluate units using basis_formula (if present), substituting variables with submitted values
-        $units = null;
-        if ($formula_tiers) {
-            
-            if ($width_price_factor || $height_price_factor) {
-                $final_tired_factor = max($width_price_factor, $height_price_factor);
-                if (strpos($formula_price, $autosize_formula_string) !== false) {
-                    $formula_tiers = str_replace($autosize_formula_string, $final_tired_factor, $formula_tiers);
-                }
-            }
+        if (count($tiered_price)) {
+            foreach ($tiered_price as $tired) {
+                // basic quantity check
+                if (!isset($tired['from_quantity'])) continue;
+                if ($qty < $tired['from_quantity']) continue;
 
-            try {
+                // pages match: if tier row specifies pages, require equality
+                if (!isset($tired['pages'])) continue;
+                if ($current_pages < $tired['pages']) continue;
                 
-                $units_eval = $m->evaluate($formula_tiers);
-                $units = is_numeric($units_eval) ? (int)$units_eval : null;
-            } catch (Exception $e) {
-                $units = null;
-            }
-        }
+                // printside match: if tier row specifies printside, require equality
+                if (isset($tired['printside']) && $tired['printside'] !== '') {
+                    if ($current_printside === null) continue; // can't match
+                    // compare numeric option id or string
+                    if (is_numeric($tired['printside']) && (int)$tired['printside'] === (int)$current_printside) {
+                        // ok
+                    } elseif ((string)$tired['printside'] === (string)$current_printside) {
+                        // ok
+                    } else {
+                        continue;
+                    }
+                }
 
-        if (count($tiers)) {
-            //echo 'units: '.$units;
-            foreach ($tiers as $tier) {
-                if (!isset($tier['from_quantity'])) continue;
-                $compare = ($units !== null) ? $units : 0;
-                if ($compare < $tier['from_quantity']) continue;
-
-                // this tier applies
-                $discount = $tier['price'];
+                // if we reach here, this tier row applies
+                $discount = $tired['price'];
                 $discount = $discount / 100;
-                // continue to allow later tiers to override
+                // continue looping to allow later (higher from_quantity) rows to override
             }
-           // echo 'discount: '.$discount;
         }
-
 
         $price_wot = $discount * $price_wot;
-        
         $price_wot_dis = $price_wot;
-        
+
         if ($customer_group_id) {
             $customerGroupId = $customer_group_id;
         } else {
@@ -2915,7 +2851,6 @@ class ProductPriceConfig extends Module
             $weight = $m->evaluate($formula_weight);
         }
 
-       
 
 
         if ($formula_thickness) {
@@ -2972,8 +2907,7 @@ class ProductPriceConfig extends Module
 
         $id_product_attribute = $params['id_product_attribute'];
         $price_weight = $this->getCalculatedProductPriceWeight($params);
-        $price_wot = $price_weight['price'];
-
+        $price_wot = $price_weight['price_wot_dis'];
         $formula_price = $price_weight['formula_price'];
         $send = [];
         if ($formula_price == 0) {
@@ -2981,16 +2915,6 @@ class ProductPriceConfig extends Module
             
             return $send;
         }
-
-        $price_wot = Tools::ps_round($price_wot, 2);
-        $price_wot = $this->getAdjustedDisplayPrice(
-            (int) $params['id_product'],
-            (int) $price_weight['qty'],
-            (float) $price_wot
-        );
-
-        
-       
 
         if (isset($params['id_customization']) && $params['id_customization']) {
             //$this->context->cart->deleteProduct($product->id, $id_product_attribute, (int) $params['id_customization']);

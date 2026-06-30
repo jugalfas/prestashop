@@ -195,6 +195,40 @@ class AdminVariableController extends ModuleAdminController
 			Db::getInstance()->execute($alter);
 		}
 
+		// Ensure printformer_name column exists for options
+		$table_opt = _DB_PREFIX_ . 'option';
+		$column_opt = 'printformer_name';
+
+		$sql_opt = "SELECT COUNT(*) 
+		FROM INFORMATION_SCHEMA.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = '$table_opt'
+		AND COLUMN_NAME = '$column_opt'";
+
+		$exists_opt = (bool) Db::getInstance()->getValue($sql_opt);
+
+		if (!$exists_opt) {
+			$alter_opt = "ALTER TABLE `" . _DB_PREFIX_ . "option` ADD `printformer_name` VARCHAR(255) NULL";
+			Db::getInstance()->execute($alter_opt);
+		}
+
+		// Ensure printformer_name column exists for variables
+		$table_var = _DB_PREFIX_ . 'variable';
+		$column_var = 'printformer_name';
+
+		$sql_var = "SELECT COUNT(*) 
+		FROM INFORMATION_SCHEMA.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE()
+		AND TABLE_NAME = '$table_var'
+		AND COLUMN_NAME = '$column_var'";
+
+		$exists_var = (bool) Db::getInstance()->getValue($sql_var);
+
+		if (!$exists_var) {
+			$alter_var = "ALTER TABLE `" . _DB_PREFIX_ . "variable` ADD `printformer_name` VARCHAR(255) NULL";
+			Db::getInstance()->execute($alter_var);
+		}
+
 		// toolbar (save, cancel, new, ..)
 		$this->initTabModuleList();
 		$this->initToolbar();
@@ -456,6 +490,16 @@ class AdminVariableController extends ModuleAdminController
 		);
 
 		$this->fields_form['input'][] = array(
+			'type' => 'text',
+			'label' => $this->l('Printformer Name'),
+			'name' => 'printformer_name',
+			'size' => 48,
+			'required' => false,
+			'hint' => $this->l('Optional text value used for Printformer API integrations.'),
+
+		);
+
+		$this->fields_form['input'][] = array(
 			'type' => 'switch',
 			'label' => $this->l('Global Disable'),
 			'name' => 'active',
@@ -504,6 +548,11 @@ class AdminVariableController extends ModuleAdminController
 			return;
 
 		$parent = new KDVariable((int)Tools::getValue('id_variable'));
+
+		// populate printformer_name for option if the object has it
+		if (Validate::isLoadedObject($obj) && isset($obj->printformer_name)) {
+			$this->fields_value['printformer_name'] = $obj->printformer_name;
+		}
 
 		return parent::renderForm();
 	}
@@ -772,6 +821,16 @@ class AdminVariableController extends ModuleAdminController
 					'hint' => $this->l('Invalid characters:') . ' <>;=#{}',
 
 				),
+
+				array(
+					'type' => 'text',
+					'label' => $this->l('Printformer Name'),
+					'name' => 'printformer_name',
+					'size' => 48,
+					'required' => false,
+					'hint' => $this->l('Optional text value used for Printformer API integrations.'),
+
+				),
 			),
 		);
 
@@ -795,6 +854,11 @@ class AdminVariableController extends ModuleAdminController
 			$associations = array();
 
 		$this->fields_form['shop_associations'] = Tools::jsonEncode($associations);
+
+		// Populate printformer_name for variable form if available
+		if (Validate::isLoadedObject($obj) && isset($obj->printformer_name)) {
+			$this->fields_value['printformer_name'] = $obj->printformer_name;
+		}
 
 
 

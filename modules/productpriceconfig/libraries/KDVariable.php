@@ -19,6 +19,12 @@ class KDVariable extends ObjectModel
 
     public $id;
     public $name;
+    /**
+     * Printformer name for integrations (optional)
+     * @var string
+     */
+    public $printformer_name;
+
     public $type;
     public $minimum;
     public $maximum;
@@ -40,6 +46,7 @@ class KDVariable extends ObjectModel
         'multilang' => true,
         'fields' => array(
             'name' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'required' => true, 'size' => 254),
+            'printformer_name' => array('type' => self::TYPE_STRING, 'validate' => 'isCleanHtml', 'size' => 255),
             'type' => array('type' => self::TYPE_STRING, 'required' => true),
             'minimum' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
             'maximum' => array('type' => self::TYPE_INT, 'validate' => 'isUnsignedId'),
@@ -50,7 +57,7 @@ class KDVariable extends ObjectModel
             'active' =>     array('type' => self::TYPE_BOOL, 'validate' => 'isBool'),
             'date_add' =>   array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
             'date_upd' =>   array('type' => self::TYPE_DATE, 'validate' => 'isDate'),
-
+            
             /* Lang fields */
             'label' =>        array('type' => self::TYPE_STRING, 'lang' => true, 'validate' => 'isCleanHtml', 'required' => false, 'size' => 255),
 

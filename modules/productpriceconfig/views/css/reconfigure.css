@@ -1,0 +1,450 @@
+/**
+ * reconfigure.css - Styling for Reconfigure & Reorder page.
+ * PrestaShop 1.7 compatible, product-block layout.
+ */
+
+/* ── Container ── */
+.reconfigure-container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+/* ── Header ── */
+.reconfigure-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.order-ref {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #363a42;
+    margin: 0;
+}
+
+.order-date {
+    font-size: 0.85rem;
+    color: #888;
+}
+
+.btn-back-link {
+    color: #2fbad8;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.btn-back-link:hover {
+    color: #26a0ba;
+    text-decoration: underline;
+}
+
+/* ── Error Banner ── */
+.reconfigure-error-banner {
+    text-align: center;
+    padding: 40px;
+    color: #c0392b;
+}
+
+.reconfigure-error-banner p {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+/* ── Product Blocks ── */
+.product-blocks {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.product-block {
+    background: #fff;
+    border: 2px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 20px;
+    transition: border-color 0.2s;
+}
+
+.product-block.block-valid {
+    border-color: #b8e6c8;
+}
+
+.product-block.block-invalid {
+    border-color: #f5c6c6;
+    background: #fffbfb;
+}
+
+/* ── Product Header ── */
+.product-header {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.product-image {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-info {
+    flex: 1;
+}
+
+.product-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #363a42;
+    margin: 0 0 8px 0;
+}
+
+.price-comparison {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.price-row {
+    display: flex;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.price-label {
+    color: #888;
+}
+
+.price-original {
+    color: #888;
+    text-decoration: line-through;
+}
+
+.price-current {
+    font-weight: 700;
+    color: #2c2c2c;
+    font-size: 1rem;
+}
+
+.block-valid .price-current {
+    color: #1a7d3f;
+}
+
+.block-invalid .price-current {
+    color: #999;
+}
+
+/* ── Configuration Details ── */
+.config-details {
+    margin-bottom: 14px;
+}
+
+.config-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.9rem;
+}
+
+.config-label {
+    min-width: 140px;
+    color: #555;
+    font-weight: 500;
+}
+
+.config-value {
+    color: #363a42;
+}
+
+.config-warning {
+    color: #b8860b;
+    font-size: 0.85rem;
+    cursor: help;
+}
+
+.config-invalid .config-value {
+    color: #999;
+    text-decoration: line-through;
+}
+
+/* ── Quantity Editing ── */
+.config-qty {
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 4px;
+}
+
+.qty-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.qty-value {
+    font-weight: 700;
+    color: #363a42;
+    font-size: 1rem;
+}
+
+.qty-edit-btn {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #666;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+}
+
+.qty-edit-btn:hover {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.qty-editor {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.qty-dec,
+.qty-inc {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #555;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s;
+}
+
+.qty-dec:hover,
+.qty-inc:hover {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.qty-input {
+    width: 80px;
+    height: 32px;
+    text-align: center;
+    border: 2px solid #2fbad8;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #363a42;
+    padding: 0 4px;
+    -moz-appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.qty-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(47, 186, 216, 0.2);
+}
+
+.qty-range {
+    font-size: 0.75rem;
+    color: #888;
+    margin-left: 8px;
+}
+
+/* ── Inline Validation ── */
+.block-validation {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.val-icon {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.val-success {
+    color: #1a7d3f;
+}
+
+.val-error {
+    color: #c0392b;
+}
+
+.val-warning {
+    color: #b8860b;
+}
+
+.val-text {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.val-details {
+    width: 100%;
+    margin-top: 6px;
+}
+
+.val-detail {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 0.8rem;
+}
+
+.val-dynamic {
+    animation: valFadeIn 0.3s ease;
+}
+
+@keyframes valFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.severity-success {
+    color: #1a7d3f;
+}
+
+.severity-error {
+    color: #c0392b;
+}
+
+.severity-warning {
+    color: #b8860b;
+}
+
+/* ── Footer / Add to Cart Button ── */
+.reconfigure-footer {
+    text-align: center;
+    padding: 20px 0 40px;
+    border-top: 1px solid #e5e5e5;
+}
+
+.btn-add-all {
+    background: #2fbad8;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 14px 40px;
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 600;
+    transition: background-color 0.15s, transform 0.1s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-add-all:hover {
+    background: #26a0ba;
+    transform: translateY(-1px);
+}
+
+.btn-add-all:active {
+    transform: translateY(0);
+}
+
+.btn-add-all:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .product-header {
+        flex-direction: column;
+    }
+
+    .product-image {
+        width: 60px;
+        height: 60px;
+    }
+
+    .config-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .config-label {
+        min-width: unset;
+    }
+
+    .reconfigure-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .qty-range {
+        margin-left: 0;
+        margin-top: 4px;
+        display: block;
+    }
+
+    .btn-add-all {
+        width: 100%;
+        justify-content: center;
+    }
+}
