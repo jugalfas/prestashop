@@ -44,6 +44,7 @@ class ImportParser
                     $normalizedVars[$code] = [
                         'code' => $code,
                         'label' => $label,
+                        'printformer_name' => $value['printformer_name'] ?? null,
                         'options' => array_values($options),
                     ];
                 } else {
@@ -54,6 +55,7 @@ class ImportParser
                         $normalizedVars[$code] = [
                             'code' => $code,
                             'label' => $code,
+                            'printformer_name' => $value['printformer_name'] ?? null,
                             'options' => array_values($value),
                         ];
                     }
@@ -70,6 +72,7 @@ class ImportParser
                 $normalizedVars[$code] = [
                     'code' => $code,
                     'label' => $label,
+                    'printformer_name' => $v['printformer_name'] ?? null,
                     'options' => array_values($options),
                 ];
             }

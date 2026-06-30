@@ -148,7 +148,7 @@ class ImportRunner
     }
 
     private function importVariable($var, $selectedOptions, $selections, &$results)
-    {
+    {      
         $db = Db::getInstance();
         $code = $var['code'];
         $label = isset($var['label']) ? $var['label'] : $code;
@@ -172,6 +172,14 @@ class ImportRunner
                     $idLang = (int) $lang['id_lang'];
                     $exists = $db->getValue("SELECT 1 FROM $tblVarLang WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
                     if ($exists) {
+                        $now = date('Y-m-d H:i:s');
+                        $sql = "UPDATE $tblVar SET " .
+                            "name = '" . pSQL($code) . "', " .
+                            "printformer_name = '" . pSQL($var['printformer_name']) . "', " .
+                            "date_upd = '" . pSQL($now) . "' " .
+                            "WHERE id_variable = " . (int) $idVar;
+                        $db->execute($sql);
+
                         $db->execute("UPDATE $tblVarLang SET label='" . pSQL($label) . "' WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
                     } else {
                         $db->execute("INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . (int) $idVar . ", " . $idLang . ", '" . pSQL($label) . "')");
@@ -185,9 +193,10 @@ class ImportRunner
             // Insert minimal base variable row
             $now = date('Y-m-d H:i:s');
             $db->execute(
-                "INSERT INTO $tblVar (name, type, fixed_price, minimum, maximum, required, active, position, date_add, date_upd) VALUES (" .
+                "INSERT INTO $tblVar (name, type, fixed_price, printformer_name, minimum, maximum, required, active, position, date_add, date_upd) VALUES (" .
                     "'" . pSQL($code) . "', " .
                     "'" . pSQL('2') . "', " . // default to select type
+                    "'" . pSQL($var['printformer_name']) . "', " .
                     "0, 0, 0, 0, 1, 0, " .
                     "'" . pSQL($now) . "', '" . pSQL($now) . "')"
             );
@@ -231,7 +240,7 @@ class ImportRunner
                 }
             } else {
                 // create option with default values then add i18n labels
-                $db->execute("INSERT INTO $tblOpt (id_variable, price, position, weight, active) VALUES (" . (int)$idVar . ", 0, 0, 0, 1)");
+                $db->execute("INSERT INTO $tblOpt (id_variable, price, printformer_price, position, weight, active) VALUES (" . (int)$idVar . ", 0,  0, 0, 1)");
                 $idOpt = (int)$db->Insert_ID();
                 foreach ($languages as $lang) {
                     $idLang = (int)$lang['id_lang'];

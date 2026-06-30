@@ -79,6 +79,7 @@ class ExportBuilder
             $variableData = [
                 'code' => $var['name'],
                 'label' => $var['label'],
+                'printformer_name' => $var['printformer_name'],
                 'type' => $var['type'],
                 'position' => (int)$var['position'],
                 'active' => (bool)$var['active'],
@@ -100,6 +101,7 @@ class ExportBuilder
                 $variableData['options'][] = [
                     'value' => $opt['label'],
                     'price' => (float)$opt['price'],
+                    'printformer_name' => (float)$opt['printformer_name'],
                     'weight' => (float)$opt['weight'],
                     'thickness' => (float)$opt['thickness'],
                     'position' => (int)$opt['position'],
