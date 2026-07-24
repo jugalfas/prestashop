@@ -38,7 +38,7 @@
         <pre>
 			{$t|print_r}
 			</pre> *}
-            <div class="frm-section {if $t.type == 7 || $t.active == 0 } hide {/if}"  data-id="{$t.id_product_variable|intval}">
+            <div class="frm-section {if $t.type == 7 || $t.type == 9 || $t.active == 0 } hide {/if}"  data-id="{$t.id_product_variable|intval}">
                 <div class="left-frm-section-label">{if $t.type != 7}{$t.name|escape:'html':'UTF-8'}{/if}
                     {if $t.id_variable_tooltip }
                         <div class="tooltip"><i class="fa fa-info-circle" aria-hidden="true"></i>
@@ -171,6 +171,18 @@
                                     data-url_variable="{str_replace(' ', '_', strtolower($t.variable_name))}" data-type="{$t.type}">
 
                             </div>
+
+                        {elseif $t.type == 9}
+                            <div class="fixed-label">
+                                
+                                <input type="hidden" id="qty_input" name="variable_{$t.id_product_variable|intval}"
+                                    class="{$t.variable_name} input_for_url" value="{$t.default_option}"
+                                    data-variable_id="{$t.id_variable}" data-variable-name="{$t.variable_name}"
+                                    data-formula-name="{$t.formula_name}"
+                                    data-url_variable="{str_replace(' ', '_', strtolower($t.variable_name))}" data-type="{$t.type}">
+
+                            </div>
+
 
                         
                         {elseif $t.type == 4}

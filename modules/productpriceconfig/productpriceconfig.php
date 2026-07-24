@@ -41,6 +41,16 @@ require_once(dirname(__FILE__) . '/libraries/KDAlertMessage.php');
 require_once(dirname(__FILE__) . '/libraries/KDProductVariable.php');
 require_once(dirname(__FILE__) . '/libraries/KDReconfigureReorder.php');
 require_once(dirname(__FILE__) . '/libraries/KDBannedCombinationValidator.php');
+require_once(dirname(__FILE__) . '/libraries/ProductFormulaCondition.php');
+
+require_once(dirname(__FILE__) . '/offer/classes/Offer.php');
+require_once(dirname(__FILE__) . '/offer/classes/OfferProduct.php');
+require_once(dirname(__FILE__) . '/offer/classes/OfferHistory.php');
+require_once(dirname(__FILE__) . '/offer/classes/OfferAttachment.php');
+require_once(dirname(__FILE__) . '/offer/services/OfferHistoryLogger.php');
+require_once(dirname(__FILE__) . '/offer/services/OfferEmailNotifier.php');
+require_once(dirname(__FILE__) . '/offer/services/OfferPdfGenerator.php');
+require_once(dirname(__FILE__) . '/offer/services/OfferService.php');
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -113,9 +123,12 @@ class ProductPriceConfig extends Module
             && $this->registerHook('displayFooterProduct')
             && $this->registerHook('displayQuoteRequest')
             && $this->registerHook('displayReassurance')
+
             && $this->registerHook('displayCartExtraProductActions')
             && $this->registerHook('displayMyAccountOrder')
             && $this->registerHook('displayOrderDetail')
+            && $this->registerHook('displayCustomerAccount')
+            && $this->registerHook('actionAdminCustomersControllerAfter')
         ) {
             $sql1 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "variable` (
                 `id_variable`   BIGINT(20)  UNSIGNED    NOT NULL AUTO_INCREMENT,
@@ -230,19 +243,129 @@ class ProductPriceConfig extends Module
                 PRIMARY KEY (`id`)
             ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
 
-            // Db::getInstance()->execute($sql1);
-            // Db::getInstance()->execute($sql2);
-            // Db::getInstance()->execute($sql3);
-            // Db::getInstance()->execute($sql4);
-            // Db::getInstance()->execute($sql5);
-            // Db::getInstance()->execute($sql6);
-            // Db::getInstance()->execute($sql7);
-            // Db::getInstance()->execute($sql8);
-            // Db::getInstance()->execute($sql9);
-            // Db::getInstance()->execute($sql10);
-            // Db::getInstance()->execute($sql11);
-            // Db::getInstance()->execute($sql12);
+            Db::getInstance()->execute($sql1);
+            Db::getInstance()->execute($sql2);
+            Db::getInstance()->execute($sql3);
+            Db::getInstance()->execute($sql4);
+            Db::getInstance()->execute($sql5);
+            Db::getInstance()->execute($sql6);
+            Db::getInstance()->execute($sql7);
+            Db::getInstance()->execute($sql8);
+            Db::getInstance()->execute($sql9);
+            Db::getInstance()->execute($sql10);
+            Db::getInstance()->execute($sql11);
+            Db::getInstance()->execute($sql12);
 
+            $sql13 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "product_formula_condition` (
+                `id_formula_condition` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `id_product` int(10) unsigned NOT NULL,
+                `id_variable` int(10) unsigned NOT NULL,
+                `id_option` int(10) unsigned NOT NULL DEFAULT '0',
+                `surcharge_type` varchar(20) NOT NULL DEFAULT 'percentage',
+                `amount` decimal(20,4) NOT NULL DEFAULT '0.0000',
+                `apply_type` varchar(20) NOT NULL DEFAULT 'total',
+                `notes` text,
+                `active` int(1) unsigned NOT NULL DEFAULT '1',
+                `position` int(10) unsigned NOT NULL DEFAULT '0',
+                `date_add` datetime NOT NULL,
+                `date_upd` datetime NOT NULL,
+                PRIMARY KEY (`id_formula_condition`),
+                KEY `id_product` (`id_product`)
+              ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
+
+            Db::getInstance()->execute($sql13);
+
+            // Offer / Quotation tables
+            $sqlOffer1 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "offer` (
+                `id_offer` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `reference` varchar(64) NOT NULL,
+                `title` varchar(255) DEFAULT NULL,
+                `id_customer` int(10) unsigned DEFAULT NULL,
+                `id_cart` int(10) unsigned DEFAULT NULL,
+                `id_order` int(10) unsigned DEFAULT NULL,
+                `guest_email` varchar(255) DEFAULT NULL,
+                `guest_name` varchar(255) DEFAULT NULL,
+                `customer_note` text,
+                `admin_note` text,
+                `status` varchar(32) NOT NULL DEFAULT 'draft',
+                `expire_date` date DEFAULT NULL,
+                `total_products` int(10) unsigned NOT NULL DEFAULT 0,
+                `date_add` datetime NOT NULL,
+                `date_upd` datetime NOT NULL,
+                PRIMARY KEY (`id_offer`),
+                KEY `reference` (`reference`),
+                KEY `id_customer` (`id_customer`),
+                KEY `status` (`status`),
+                KEY `expire_date` (`expire_date`)
+              ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
+
+            $sqlOffer2 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "offer_product` (
+                `id_offer_product` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `id_offer` int(10) unsigned NOT NULL,
+                `id_product` int(10) unsigned NOT NULL,
+                `id_product_attribute` int(10) unsigned DEFAULT 0,
+                `id_currency` int(10) unsigned DEFAULT NULL,
+                `configuration_json` text,
+                `uploaded_file` varchar(500) DEFAULT NULL,
+                `quantity` int(10) unsigned NOT NULL DEFAULT 1,
+                `offered_price` decimal(20,4) DEFAULT NULL,
+                `discounted_amount` decimal(20,4) DEFAULT NULL,
+                `weight` decimal(20,2) DEFAULT NULL,
+                `production_time` varchar(255) DEFAULT NULL,
+                `product_status` varchar(32) NOT NULL DEFAULT 'waiting_for_price',
+                `admin_note` text,
+                `customer_note` text,
+                `date_add` datetime NOT NULL,
+                `date_upd` datetime NOT NULL,
+                PRIMARY KEY (`id_offer_product`),
+                KEY `id_offer` (`id_offer`),
+                KEY `id_product` (`id_product`),
+                KEY `product_status` (`product_status`)
+              ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
+
+            $sqlOffer3 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "offer_history` (
+                `id_offer_history` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `id_offer` int(10) unsigned NOT NULL,
+                `id_offer_product` int(10) unsigned DEFAULT NULL,
+                `id_customer` int(10) unsigned DEFAULT NULL,
+                `id_employee` int(10) unsigned DEFAULT NULL,
+                `action` varchar(64) NOT NULL,
+                `previous_value` text,
+                `new_value` text,
+                `description` text,
+                `date_add` datetime NOT NULL,
+                PRIMARY KEY (`id_offer_history`),
+                KEY `id_offer` (`id_offer`),
+                KEY `id_offer_product` (`id_offer_product`),
+                KEY `action` (`action`)
+              ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
+
+            $sqlOffer4 = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "offer_attachment` (
+                `id_offer_attachment` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                `id_offer_product` int(10) unsigned NOT NULL,
+                `original_name` varchar(255) NOT NULL,
+                `saved_name` varchar(255) NOT NULL,
+                `extension` varchar(20) NOT NULL,
+                `mime_type` varchar(100) NOT NULL,
+                `size` int(10) unsigned DEFAULT NULL,
+                `width` int(10) unsigned DEFAULT NULL,
+                `height` int(10) unsigned DEFAULT NULL,
+                `uploaded_by` int(10) unsigned DEFAULT NULL,
+                `date_add` datetime NOT NULL,
+                PRIMARY KEY (`id_offer_attachment`),
+                KEY `id_offer_product` (`id_offer_product`)
+              ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=UTF8";
+
+            Db::getInstance()->execute($sqlOffer1);
+            Db::getInstance()->execute($sqlOffer2);
+            Db::getInstance()->execute($sqlOffer3);
+            Db::getInstance()->execute($sqlOffer4);
+
+            // Default offer validity setting
+            Configuration::updateValue('PPC_OFFER_VALIDITY_DAYS', 15);
+
+            // Offer admin tab under ProductPriceConfig parent
+            
             $id_tab = Tab::getIdFromClassName('AdminCatalog');
             $this->installModuleTab('AdminProductPriceConfigHome', array((int)$this->context->language->id => 'Manage Product Price'), 0);
             $id_tab = Tab::getIdFromClassName('AdminProductPriceConfigHome');
@@ -251,6 +374,8 @@ class ProductPriceConfig extends Module
             $this->installModuleTab('AdminVariable', array((int)$this->context->language->id => 'Variables'), $id_tab);
             $this->installModuleTab('AdminVariableToolTip', array((int)$this->context->language->id => 'Tool Tips'), $id_tab);
             $this->installModuleTab('AdminAlertMessages', array((int)$this->context->language->id => 'Alert Messages'), $id_tab);
+            $this->installModuleTab('AdminOffers', array((int)$this->context->language->id => 'Offers'), $id_tab);
+
             $this->installModuleTab('AdminProductPriceExport', array((int)$this->context->language->id => 'Export Configuration'), $id_tab);
             $this->installModuleTab('AdminProductPriceImport', array((int)$this->context->language->id => 'Import Configuration'), $id_tab);
 
@@ -275,6 +400,11 @@ class ProductPriceConfig extends Module
         // Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'product_variable_lang`');
 
         // Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'product_setting`');
+
+        // Remove offer tab
+        $this->uninstallModuleTab('AdminOffers', $id_tab);
+        // Remove offer configuration
+        // Configuration::deleteByName('PPC_OFFER_VALIDITY_DAYS');
 
         if (parent::uninstall() && $this->uninstallModuleTab('AdminVariable', $id_tab) && $this->uninstallModuleTab('AdminVariableToolTips', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfig', $id_tab) && $this->uninstallModuleTab('AdminProductPriceExport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceImport', $id_tab) && $this->uninstallModuleTab('AdminProductPriceConfigHome', 0)) {
             return true;
@@ -414,6 +544,27 @@ class ProductPriceConfig extends Module
                 break;
             case 'AjaxUpdateRule':
                 $this->AjaxUpdateRule();
+                break;
+            case 'FcList':
+                $this->fcList();
+                break;
+            case 'FcCreate':
+                $this->fcCreate();
+                break;
+            case 'FcGetCondition':
+                $this->fcGetCondition();
+                break;
+            case 'FcUpdate':
+                $this->fcUpdate();
+                break;
+            case 'FcDelete':
+                $this->fcDelete();
+                break;
+            case 'FcToggleStatus':
+                $this->fcToggleStatus();
+                break;
+            case 'FcGetVariableInfo':
+                $this->fcGetVariableInfo();
                 break;
         }
         exit(Tools::jsonEncode($ret));
@@ -834,6 +985,263 @@ class ProductPriceConfig extends Module
         die();
     }
 
+    // ──────────────────────────────────────────────
+    //  FORMULA CONDITIONS AJAX HANDLERS
+    // ──────────────────────────────────────────────
+
+    public function fcList()
+    {
+        $id_product = (int) Tools::getValue('id_product');
+        $conditions = ProductFormulaCondition::getAllConditions($id_product);
+        $id_lang = (int) $this->context->language->id;
+
+        // Build a map of id_variable => product variable name for this product
+        $product_variables = Db::getInstance()->executeS('
+            SELECT pv.id_variable, pvl.name
+            FROM ' . _DB_PREFIX_ . 'product_variable pv
+            LEFT JOIN ' . _DB_PREFIX_ . 'product_variable_lang pvl
+                ON (pv.id_product_variable = pvl.id_product_variable AND pvl.id_lang = ' . $id_lang . ')
+            WHERE pv.id_product = ' . $id_product
+        ) ?: [];
+
+        $var_names = [];
+        foreach ($product_variables as $pv) {
+            $var_names[(int) $pv['id_variable']] = $pv['name'];
+        }
+
+        $html = '';
+        if (empty($conditions)) {
+            $html = '<tr><td colspan="9" class="text-center">No conditions found.</td></tr>';
+        } else {
+            foreach ($conditions as $c) {
+                $var_name = isset($var_names[(int) $c['id_variable']])
+                    ? $var_names[(int) $c['id_variable']]
+                    : '--';
+
+                // Get variable type to determine "For Value" display
+                $varObj = new KDVariable((int) $c['id_variable'], $id_lang);
+                $for_value = '--';
+                if (Validate::isLoadedObject($varObj) && $varObj->type == 2 && $c['id_option']) {
+                    $option = new KDOption((int) $c['id_option'], $id_lang);
+                    $for_value = Validate::isLoadedObject($option) ? $option->label : '--';
+                } elseif ($c['id_option']) {
+                    $for_value = $c['id_option'];
+                }
+
+                $surcharge_label = $c['surcharge_type'] === 'percentage'
+                    ? '<span class="fc-badge fc-badge-percentage">Percentage</span>'
+                    : '<span class="fc-badge fc-badge-fixed">Fixed</span>';
+
+                $apply_label = $c['apply_type'] === 'total'
+                    ? '<span class="fc-badge fc-badge-total">Total Price</span>'
+                    : '<span class="fc-badge fc-badge-per-unit">Per Unit</span>';
+
+                $unit = $c['surcharge_type'] === 'percentage' ? '%' : '&euro;';
+                $checked = $c['active'] ? 'checked' : '';
+
+                $html .= '<tr>';
+                $html .= '<td><input type="checkbox" class="fc-toggle-active" data-id="' . (int) $c['id_formula_condition'] . '" ' . $checked . '></td>';
+                $html .= '<td>' . htmlspecialchars($var_name, ENT_QUOTES, 'UTF-8') . '</td>';
+                $html .= '<td>' . $for_value . '</td>';
+                $html .= '<td>' . $surcharge_label . '</td>';
+                $html .= '<td>' . $c['amount'] . '</td>';
+                $html .= '<td>' . $unit . '</td>';
+                $html .= '<td>' . $apply_label . '</td>';
+                $html .= '<td>' . htmlspecialchars($c['notes'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
+                $html .= '<td class="fc-actions">';
+                $html .= '<a href="#" class="fc-edit" data-id="' . (int) $c['id_formula_condition'] . '"><i class="fa fa-edit"></i> Edit</a>';
+                $html .= '<a href="#" class="fc-delete" data-id="' . (int) $c['id_formula_condition'] . '"><i class="fa fa-trash"></i> Delete</a>';
+                $html .= '</td>';
+                $html .= '</tr>';
+            }
+        }
+
+        die(Tools::jsonEncode(['success' => true, 'html' => $html]));
+    }
+
+    public function fcCreate()
+    {
+        $id_product = (int) Tools::getValue('id_product');
+        $id_variable = (int) Tools::getValue('id_variable');
+        $id_option = (int) Tools::getValue('id_option');
+        $custom_value = Tools::getValue('custom_value');
+        $surcharge_type = Tools::getValue('surcharge_type');
+        $amount = (float) Tools::getValue('amount');
+        $apply_type = Tools::getValue('apply_type');
+        $notes = Tools::getValue('notes');
+        $active = (int) Tools::getValue('active') ? 1 : 0;
+
+        if (!$id_product || !$id_variable || !$surcharge_type || !$amount) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Missing required fields']));
+        }
+
+        // For non-select variables, store custom_value as id_option
+        if ($custom_value !== '' && $custom_value !== null) {
+            $id_option = (float) $custom_value;
+        }
+
+        $cond = new ProductFormulaCondition();
+        $cond->id_product = $id_product;
+        $cond->id_variable = $id_variable;
+        $cond->id_option = $id_option;
+        $cond->surcharge_type = $surcharge_type;
+        $cond->amount = $amount;
+        $cond->apply_type = $apply_type;
+        $cond->notes = $notes;
+        $cond->active = $active;
+        $cond->position = 0;
+        $cond->date_add = date('Y-m-d H:i:s');
+        $cond->date_upd = date('Y-m-d H:i:s');
+
+        if ($cond->save()) {
+            die(Tools::jsonEncode(['success' => true, 'message' => 'Condition created']));
+        }
+        die(Tools::jsonEncode(['success' => false, 'message' => 'Failed to create condition']));
+    }
+
+    public function fcGetCondition()
+    {
+        $id = (int) Tools::getValue('id_formula_condition');
+        $row = ProductFormulaCondition::getCondition($id);
+        if (!$row) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Not found']));
+        }
+
+        // Get variable type for frontend
+        $varObj = new KDVariable((int) $row['id_variable'], (int) $this->context->language->id);
+        $row['type'] = (int) $varObj->type;
+
+        die(Tools::jsonEncode(['success' => true, 'condition' => $row]));
+    }
+
+    public function fcUpdate()
+    {
+        $id = (int) Tools::getValue('id_formula_condition');
+        $id_product = (int) Tools::getValue('id_product');
+        $id_variable = (int) Tools::getValue('id_variable');
+        $id_option = (int) Tools::getValue('id_option');
+        $custom_value = Tools::getValue('custom_value');
+        $surcharge_type = Tools::getValue('surcharge_type');
+        $amount = (float) Tools::getValue('amount');
+        $apply_type = Tools::getValue('apply_type');
+        $notes = Tools::getValue('notes');
+        $active = (int) Tools::getValue('active') ? 1 : 0;
+
+        if (!$id || !$id_product || !$id_variable || !$surcharge_type || !$amount) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Missing required fields']));
+        }
+
+        // For non-select variables, store custom_value as id_option
+        if ($custom_value !== '' && $custom_value !== null) {
+            $id_option = (float) $custom_value;
+        }
+
+        $cond = new ProductFormulaCondition($id);
+        if (!Validate::isLoadedObject($cond)) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Condition not found']));
+        }
+
+        $cond->id_product = $id_product;
+        $cond->id_variable = $id_variable;
+        $cond->id_option = $id_option;
+        $cond->surcharge_type = $surcharge_type;
+        $cond->amount = $amount;
+        $cond->apply_type = $apply_type;
+        $cond->notes = $notes;
+        $cond->active = $active;
+        $cond->date_upd = date('Y-m-d H:i:s');
+
+        if ($cond->update()) {
+            die(Tools::jsonEncode(['success' => true, 'message' => 'Condition updated']));
+        }
+        die(Tools::jsonEncode(['success' => false, 'message' => 'Failed to update condition']));
+    }
+
+    public function fcDelete()
+    {
+        $id = (int) Tools::getValue('id_formula_condition');
+        $cond = new ProductFormulaCondition($id);
+        if (!Validate::isLoadedObject($cond)) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Condition not found']));
+        }
+        if ($cond->delete()) {
+            die(Tools::jsonEncode(['success' => true, 'message' => 'Condition deleted']));
+        }
+        die(Tools::jsonEncode(['success' => false, 'message' => 'Failed to delete condition']));
+    }
+
+    public function fcToggleStatus()
+    {
+        $id = (int) Tools::getValue('id_formula_condition');
+        $active = (int) Tools::getValue('active') ? 1 : 0;
+
+        if (ProductFormulaCondition::FCtoggleStatus($id, $active)) {
+            die(Tools::jsonEncode(['success' => true, 'message' => 'Status updated']));
+        }
+        die(Tools::jsonEncode(['success' => false, 'message' => 'Failed to toggle status']));
+    }
+
+    public function fcGetVariableInfo()
+    {
+        $id_variable = (int) Tools::getValue('id_variable');
+        $id_product = (int) Tools::getValue('id_product');
+        $id_lang = (int) $this->context->language->id;
+
+        $varObj = new KDVariable($id_variable, $id_lang);
+        if (!Validate::isLoadedObject($varObj)) {
+            die(Tools::jsonEncode(['success' => false, 'message' => 'Variable not found']));
+        }
+
+        $options = [];
+        if ($varObj->type == 2) {
+            // Load only options assigned to this product for this variable, active only
+            $product_variable = Db::getInstance()->getRow('
+                SELECT options
+                FROM ' . _DB_PREFIX_ . 'product_variable
+                WHERE id_product = ' . $id_product . '
+                AND id_variable = ' . $id_variable
+            );
+
+            $assigned_option_ids = [];
+            if ($product_variable && $product_variable['options']) {
+                $decoded = json_decode($product_variable['options'], true);
+                if (is_array($decoded)) {
+                    foreach ($decoded as $opt_id) {
+                        $assigned_option_ids[] = (int) $opt_id;
+                    }
+                }
+            }
+
+            if (!empty($assigned_option_ids)) {
+                $sql = '
+                    SELECT a.id_option, b.label
+                    FROM ' . _DB_PREFIX_ . 'option a
+                    LEFT JOIN ' . _DB_PREFIX_ . 'option_lang b ON (a.id_option = b.id_option)
+                    WHERE b.id_lang = ' . $id_lang . '
+                    AND a.id_variable = ' . $id_variable . '
+                    AND a.active = 1
+                    AND a.id_option IN (' . implode(',', $assigned_option_ids) . ')
+                    ORDER BY a.position
+                ';
+                $all_options = Db::getInstance()->executeS($sql);
+                if ($all_options) {
+                    foreach ($all_options as $opt) {
+                        $options[] = [
+                            'id_option' => $opt['id_option'],
+                            'label' => $opt['label'],
+                        ];
+                    }
+                }
+            }
+        }
+
+        die(Tools::jsonEncode([
+            'success' => true,
+            'type' => (int) $varObj->type,
+            'options' => $options,
+        ]));
+    }
+
     public function saveFormulaSettings()
     {
 
@@ -1227,6 +1635,10 @@ class ProductPriceConfig extends Module
         Media::addJsDef(['st_product_url' => $product_url]);
         $this->context->controller->addCSS($this->_path . 'views/css/admin.css');
         $this->context->controller->addJS(($this->_path) . 'views/js/admin.js');
+
+        $this->context->controller->addCSS($this->_path . 'views/css/formula-conditions.css');
+        $this->context->controller->addJS(($this->_path) . 'views/js/formula-conditions.js');
+
 
         $id_product_setting = (int)Tools::getValue('id_product_setting');
         $id_product = (int)Tools::getValue('id_product');
@@ -2672,11 +3084,13 @@ class ProductPriceConfig extends Module
         require_once(dirname(__FILE__) . "/expression.php");
         $m = new expression;
         $price_data = array();
-        $formula_width = $formula_price_evaluated = $formula_height = $thickness = $weight =  $shipping_price_per_pack = $qty = $formula_tiers = 0;
+        $price_by_thickness = array();
+        $formula_width = $formula_price_evaluated = $formula_height = $thickness = $weight =  $shipping_price_per_pack = $qty = 0;
         $priceFormatter = new PriceFormatter();
 
         $autosize_formula_string   = '#customsize#';
         $autothickness_formula_string   = '#wire#';
+        $price_by_thickness_formula_string = '#wireos#';
 
         $width_price_text = $this->l('breedte');
         $height_price_text = $this->l('hoogte');
@@ -2764,10 +3178,23 @@ class ProductPriceConfig extends Module
                     }
                 } elseif ($varObj->type == 3) {
                     $value_weight = $value_price = $varObj->fixed_price;
+                } elseif ($varObj->type == 6) {
+                    $spine_options = $varObj->getAllOptions((int)$this->context->language->id);
+                    foreach ($spine_options as $option) {
+                        $option = new KDOption($option['id_option'], (int)$this->context->language->id);
+                        $price_by_thickness[$option->label] = $option->price;
+                    }
+                    $option = new KDOption($id_option, (int)$this->context->language->id);
+                    $value_price = $option->price;
+                    
                 } elseif ($varObj->type == 7) {
                     $id_option = $params['variable_' . $data['id_product_variable']];
                     $option = new KDOption($id_option, (int)$this->context->language->id);
                     $shipping_price_per_pack = $option->price;
+                } elseif ($varObj->type == 9) {
+                    $id_option = $params['variable_' . $data['id_product_variable']];
+                    $option = new KDOption($id_option, (int)$this->context->language->id);
+                    $value_price = $option->price;
                 }
 
                 //$name = '[variable_'.$data['id_product_variable'].']';
@@ -2793,6 +3220,20 @@ class ProductPriceConfig extends Module
             }
         }
 
+        if ($formula_thickness) {
+            if (strpos($formula_thickness, $autothickness_formula_string) !== false) {
+                $formula_thickness = str_replace($autothickness_formula_string, '', $formula_thickness);
+                $thickness = $m->evaluate($formula_thickness);
+                $thickness = (float)$thickness;
+                $thickness = $this->getWireThicknessByRange($thickness);
+            } else {
+
+                $thickness = $m->evaluate($formula_thickness);
+                $thickness = Tools::ps_round($thickness, 1);
+                $thickness = $thickness . ' mm';
+            }
+        }
+
         if ($formula_width && $formula_height) {
             if ($formula_width > $formula_height) {
                 $width_price_factor = $this->getPriceFactor($formula_height, 'width');
@@ -2813,6 +3254,16 @@ class ProductPriceConfig extends Module
             $final_price_factor = max($width_price_factor, $height_price_factor);
             if (strpos($formula_price, $autosize_formula_string) !== false) {
                 $formula_price = str_replace($autosize_formula_string, $final_price_factor, $formula_price);
+            }
+        }
+
+        if ($thickness and count($price_by_thickness)) {
+            $final_price_by_thickness = $price_by_thickness[$thickness];
+            if(!$final_price_by_thickness){
+                $final_price_by_thickness = 0;
+            }
+            if (strpos($formula_price, $price_by_thickness_formula_string) !== false) {
+                $formula_price = str_replace($price_by_thickness_formula_string, $final_price_by_thickness, $formula_price);
             }
         }
 
@@ -2915,24 +3366,108 @@ class ProductPriceConfig extends Module
             $weight = $m->evaluate($formula_weight);
         }
 
-       
+        // ── Formula Conditions surcharge ──
+        $surcharge_total = $this->calculateFormulaConditionSurcharge(
+            (int) $params['id_product'],
+            $params,
+            $price_wot,
+            $qty
+        );
+        $price_wot += $surcharge_total;
+        $price_wot_dis += $surcharge_total;
 
 
-        if ($formula_thickness) {
-            if (strpos($formula_thickness, $autothickness_formula_string) !== false) {
-                $formula_thickness = str_replace($autothickness_formula_string, '', $formula_thickness);
-                $thickness = $m->evaluate($formula_thickness);
-                $thickness = (float)$thickness;
-                $thickness = $this->getWireThicknessByRange($thickness);
-            } else {
+        return array('price' => $price_wot, 'price_wot_dis' => $price_wot_dis, 'formula_price' => $formula_price_evaluated, 'weight' => $weight, 'thickness' => $thickness, 'package' => $package, 'qty' => $qty);
+    }
 
-                $thickness = $m->evaluate($formula_thickness);
-                $thickness = Tools::ps_round($thickness, 1);
-                $thickness = $thickness . ' mm';
+    /**
+     * Calculate the total surcharge from all matching active Formula Conditions.
+     *
+     * For each condition, check if the customer's selected value for the
+     * target variable matches the condition's configured value. If it matches,
+     * apply the surcharge:
+     *   - percentage: price * (amount / 100)
+     *   - fixed: amount
+     *   - per_unit: multiply surcharge by quantity
+     *   - total: apply once
+     *
+     * @param int   $id_product
+     * @param array $params     variable_X => value
+     * @param float $price_wot  Current price without tax
+     * @param int   $qty        Quantity
+     * @return float Total surcharge to add
+     */
+    private function calculateFormulaConditionSurcharge($id_product, $params, $price_wot, $qty)
+    {
+        $conditions = ProductFormulaCondition::getActiveConditions($id_product);
+        if (!$conditions) {
+            return 0;
+        }
+
+        // Build a map of id_variable => selected value from params
+        $selected_values = [];
+        $available_product_variables = $this->db->executeS('
+            SELECT id_product_variable, id_variable
+            FROM ' . _DB_PREFIX_ . 'product_variable
+            WHERE id_product = ' . (int) $id_product
+        ) ?: [];
+
+        foreach ($available_product_variables as $pv) {
+            $var_key = 'variable_' . $pv['id_product_variable'];
+            if (isset($params[$var_key])) {
+                $selected_values[(int) $pv['id_variable']] = $params[$var_key];
             }
         }
 
-        return array('price' => $price_wot, 'price_wot_dis' => $price_wot_dis, 'formula_price' => $formula_price_evaluated, 'weight' => $weight, 'thickness' => $thickness, 'package' => $package, 'qty' => $qty);
+        $total_surcharge = 0;
+
+        foreach ($conditions as $cond) {
+            $id_variable = (int) $cond['id_variable'];
+            $id_option = (int) $cond['id_option'];
+
+            if (!isset($selected_values[$id_variable])) {
+                continue;
+            }
+
+            $selected = $selected_values[$id_variable];
+
+            // Determine variable type to decide matching logic
+            $varObj = new KDVariable($id_variable, (int) $this->context->language->id);
+
+            $matches = false;
+
+            if ($varObj->type == 2) {
+                // Select type: match by option ID
+                $matches = ((int) $selected === $id_option);
+            } else {
+                // Non-select: match by value (id_option stores the numeric/text value)
+                if ($id_option > 0) {
+                    $matches = ((float) $selected === (float) $id_option);
+                }
+            }
+
+            if (!$matches) {
+                continue;
+            }
+
+            // Calculate surcharge amount
+            $amount = (float) $cond['amount'];
+
+            if ($cond['surcharge_type'] === 'percentage') {
+                $surcharge = $price_wot * ($amount / 100);
+            } else {
+                $surcharge = $amount;
+            }
+
+            // Apply per-unit or total
+            if ($cond['apply_type'] === 'per_unit') {
+                $surcharge = $surcharge * (int) $qty;
+            }
+
+            $total_surcharge += $surcharge;
+        }
+
+        return $total_surcharge;
     }
 
     public function ajaxAddToCart($params)
@@ -3392,5 +3927,16 @@ class ProductPriceConfig extends Module
         ));
 
         return $this->display(__FILE__, 'views/templates/hook/reorder_link.tpl');
+    }
+
+    /**
+     * Hook: displayCustomerAccount
+     * Adds a "My Offers" link on the customer account page.
+     */
+    public function hookDisplayCustomerAccount($params)
+    {
+        $offers_url = $this->context->link->getModuleLink($this->name, 'offerlist', [], true);
+        $this->context->smarty->assign('offers_url', $offers_url);
+        return $this->display(__FILE__, 'views/templates/hook/my_offers_link.tpl');
     }
 }

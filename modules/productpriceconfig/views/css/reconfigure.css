@@ -33,14 +33,14 @@
 }
 
 .btn-back-link {
-    color: #2fbad8;
+    color: #8f8d8d;
     font-size: 0.85rem;
     text-decoration: none;
     transition: color 0.15s;
 }
 
 .btn-back-link:hover {
-    color: #26a0ba;
+    color: #afcb31;
     text-decoration: underline;
 }
 
@@ -367,7 +367,7 @@
 }
 
 .btn-add-all {
-    background: #2fbad8;
+    background: #8f8d8d;
     color: #fff;
     border: none;
     border-radius: 6px;
@@ -382,7 +382,7 @@
 }
 
 .btn-add-all:hover {
-    background: #26a0ba;
+    background: #afcb31;
     transform: translateY(-1px);
 }
 

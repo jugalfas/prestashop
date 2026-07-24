@@ -1,0 +1,100 @@
+/* ── Offer Admin Styles ── */
+
+.offer-admin-list .panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.offer-list-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.offer-list-table td {
+    vertical-align: middle;
+}
+
+.offer-list-table tr.warning {
+    background: #fff8e1;
+}
+
+.offer-list-table tr.success {
+    background: #e8f5e9;
+}
+
+.offer-filters .form-control {
+    height: 34px;
+}
+
+/* Detail page */
+.offer-admin-detail .panel-heading {
+    font-size: 16px;
+}
+
+.offer-admin-detail .label {
+    font-size: 13px;
+    padding: 5px 12px;
+}
+
+.offer-product-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.offer-product-card .price-offer-form {
+    text-align: left;
+}
+
+.offer-product-card .price-offer-form .form-group {
+    margin-bottom: 8px;
+}
+
+.offer-product-card .price-offer-form label {
+    display: block;
+    margin-bottom: 2px;
+}
+
+/* Timeline */
+.timeline {
+    position: relative;
+    padding-left: 25px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e0e0e0;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 15px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -21px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #2fbad8;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+/* Convert order modal */
+#convert-order-modal .modal-body {
+    padding: 20px;
+}

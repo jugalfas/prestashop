@@ -64,6 +64,7 @@ class AdminVariableController extends ModuleAdminController
 			array('value' => 6, 'name' => 'Spine thickness formula'),
 			array('value' => 7, 'name' => 'Shipping type'),
 			array('value' => 8, 'name' => 'Binding type'),
+			array('value' => 9, 'name' => 'Hidden cost'),
 		);
 
 		foreach ($types as $type) {
@@ -745,6 +746,7 @@ class AdminVariableController extends ModuleAdminController
 			array('id_type' => 6, 'name' => $this->l('Spine thickness formula')),
 			array('id_type' => 7, 'name' => $this->l('Shipping type')),
 			array('id_type' => 8, 'name' => $this->l('Binding type')),
+			array('id_type' => 9, 'name' => $this->l('Hidden cost')),
 		);
 		if (!$obj = new KDVariable((int)Tools::getValue($this->identifier)))
 			return;

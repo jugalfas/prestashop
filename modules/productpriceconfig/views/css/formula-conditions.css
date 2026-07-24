@@ -1,0 +1,133 @@
+/**
+ * formula-conditions.css - Styling for Formula Conditions admin tab.
+ */
+
+.fc-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.fc-table th,
+.fc-table td {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+.fc-table th {
+    background: #f8f8f8;
+    font-weight: 600;
+    color: #555;
+}
+
+.fc-table tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.fc-toggle-active {
+    margin: 0;
+}
+
+.fc-actions a {
+    margin-right: 8px;
+    color: #2fbad8;
+    text-decoration: none;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.fc-actions a:hover {
+    color: #26a0ba;
+}
+
+.fc-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.fc-badge-percentage {
+    background: #e8f4fd;
+    color: #1d4ed8;
+}
+
+.fc-badge-fixed {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.fc-badge-total {
+    background: #e0f2f1;
+    color: #00695c;
+}
+
+.fc-badge-per-unit {
+    background: #ede7f6;
+    color: #4527a0;
+}
+
+#formula_condition_modal .form-group {
+    margin-bottom: 12px;
+}
+
+#formula_condition_modal label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+/* ── Notification Area ── */
+#fc-notification-area {
+    display: none;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.fc-alert-success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.fc-alert-error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+#fc-notification-area i {
+    margin-right: 6px;
+}
+
+/* ── Loading Spinner ── */
+#fc_variable_spinner {
+    display: none;
+    margin-left: 8px;
+    font-size: 14px;
+    color: #2fbad8;
+}
+
+/* ── Button loading state ── */
+#btn-save-condition[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+#btn-add-formula-condition[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Disable pointer events on loading links ── */
+.fc-actions a[style*="pointer-events: none"] {
+    opacity: 0.6;
+}

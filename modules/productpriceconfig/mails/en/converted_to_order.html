@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{shop_name} - Order Created</title>
+</head>
+<body style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+    <table width="600" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+        <tr>
+            <td style="background: #2fbad8; padding: 20px; text-align: center;">
+                <h1 style="color: #fff; margin: 0;">{shop_name}</h1>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 30px 20px;">
+                <h2>Order Created</h2>
+                <p>Your quotation has been converted to an order.</p>
+                <table style="width: 100%; margin: 20px 0;">
+                    <tr><td style="padding: 5px 0; font-weight: bold;">Reference:</td><td style="padding: 5px 0;">{offer_reference}</td></tr>
+                    <tr><td style="padding: 5px 0; font-weight: bold;">Title:</td><td style="padding: 5px 0;">{offer_title}</td></tr>
+                    <tr><td style="padding: 5px 0; font-weight: bold;">Status:</td><td style="padding: 5px 0;">{offer_status}</td></tr>
+                    <tr><td style="padding: 5px 0; font-weight: bold;">Expiry:</td><td style="padding: 5px 0;">{offer_expiry}</td></tr>
+                </table>
+                <h3>Products:</h3>
+                <pre style="white-space: pre-wrap;">{product_list}</pre>
+                <p style="margin-top: 30px;">
+                    <a href="{offer_link}" style="background: #2fbad8; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Offer</a>
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding: 20px; text-align: center; font-size: 12px; color: #999;">
+                <p>&copy; {shop_name} - {shop_url}</p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

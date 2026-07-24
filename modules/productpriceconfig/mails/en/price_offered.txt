@@ -1,0 +1,18 @@
+{shop_name}
+================================
+
+Price Offer for Your Quotation
+
+We have reviewed your quotation and would like to offer you the following prices.
+
+Reference: {offer_reference}
+Title: {offer_title}
+Status: {offer_status}
+Expiry: {offer_expiry}
+
+Products:
+{product_list}
+
+View offer: {offer_link}
+
+{shop_name} - {shop_url}

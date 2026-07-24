@@ -1,0 +1,18 @@
+{shop_name}
+================================
+
+Prijsaanbod
+
+We hebben uw offerte beoordeeld en willen u de volgende prijzen aanbieden.
+
+Reference: {offer_reference}
+Title: {offer_title}
+Status: {offer_status}
+Expiry: {offer_expiry}
+
+Products:
+{product_list}
+
+View offer: {offer_link}
+
+{shop_name} - {shop_url}

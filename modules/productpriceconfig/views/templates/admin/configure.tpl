@@ -1,14 +1,6 @@
 {*
-* 2007-2020 Amazzing
-*
-* NOTICE OF LICENSE
-*
-* This source file is subject to the Academic Free License (AFL 3.0)
-*
-*  @author    Amazzing <mail@amazzing.ru>
-*  @copyright 2007-2020 Amazzing
-*  @license   http://opensource.org/licenses/afl-3.0.php  Academic Free License (AFL 3.0)
-*
+* ProductPriceConfig - Configure template
+* Based on existing configure.html, with Formula Conditions tab added.
 *}
 <script src="https://cdn.datatables.net/1.13.1/js/jquery.dataTables.min.js"></script>
 <link href="https://cdn.datatables.net/1.13.1/css/jquery.dataTables.min.css" rel="stylesheet" type="text/css">
@@ -17,7 +9,6 @@
 	crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.13/js/bootstrap-multiselect.js"></script>
-{* <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/5.0.7/sweetalert2.min.js"></script> *}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/2.1.2/sweetalert.min.js"></script>
 <link rel="stylesheet"
 	href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.13/css/bootstrap-multiselect.css">
@@ -33,14 +24,16 @@
 		<a href="#" class="resetSelectors"><i class="icon-undo"></i> {l s='Reset' mod='productpriceconfig'}</a>
 	{/if}
 {/function}
-{$product_html}
-<div class="bootstrap af clearfix" data-id_product="{$id_product}">
+{$product_html nofilter}
+<div class="bootstrap af clearfix" data-id_product="{$id_product|escape:'html':'UTF-8'}">
 	<div class="menu-panel col-lg-2 col-md-3">
 		<div class="list-group">
 			<a href="#filter-templates" class="list-group-item active"><i class="icon-filter"></i>
 				{l s='Product variables' mod='productpriceconfig'}</a>
 			<a href="#hook-settings" class="list-group-item"><i class="icon-cogs"></i>
 				{l s='Formula setting' mod='productpriceconfig'}</a>
+			<a href="#formula-conditions" class="list-group-item"><i class="icon-cogs"></i>
+				{l s='Formula Conditions' mod='productpriceconfig'}</a>
 			<a href="#general-settings" class="list-group-item"><i class="icon-anchor"></i>
 				{l s='Tired  price' mod='productpriceconfig'}</a>
 			<a href="#customer-filters" class="list-group-item"><i class="icon-user"></i>
@@ -127,11 +120,45 @@
 				</button>
 			</div>
 		</div>
+
+		{* ── Formula Conditions Tab ── *}
+		<div id="formula-conditions" class="tab-pane">
+			<h3>{l s='Formula Conditions' mod='productpriceconfig'}</h3>
+			<div class="alert alert-info">
+				{l s='Create conditional surcharges without editing the pricing formula. Conditions are applied automatically during price calculation.' mod='productpriceconfig'}
+			</div>
+			<div id="fc-notification-area" class="fc-alert"></div>
+			<div class="clearfix"></div>
+			<button type="button" class="btn btn-primary" style="float:right;" id="btn-add-formula-condition" data-toggle="modal"
+				data-target="#formula_condition_modal">
+				<i class="fa fa-plus"></i> {l s='Add Formula Condition' mod='productpriceconfig'}
+			</button>
+			<div class="clearfix"></div>
+			<table class="fc-table">
+				<thead>
+					<tr>
+						<th>{l s='Active' mod='productpriceconfig'}</th>
+						<th>{l s='Target Variable' mod='productpriceconfig'}</th>
+						<th>{l s='For Value' mod='productpriceconfig'}</th>
+						<th>{l s='Surcharge Type' mod='productpriceconfig'}</th>
+						<th>{l s='Amount' mod='productpriceconfig'}</th>
+						<th>{l s='Unit' mod='productpriceconfig'}</th>
+						<th>{l s='Apply On' mod='productpriceconfig'}</th>
+						<th>{l s='Notes' mod='productpriceconfig'}</th>
+						<th>{l s='Actions' mod='productpriceconfig'}</th>
+					</tr>
+				</thead>
+				<tbody id="fc-table-body">
+					<tr><td colspan="9" class="text-center">Loading...</td></tr>
+				</tbody>
+			</table>
+		</div>
+
 		<div id="general-settings" class="tab-pane">
 			<form method="post" action="" class="settigns_form form-horizontal clearfix" data-type="general">
 				<h3>{l s='Tired Price' mod='productpriceconfig'}</h3>
 				<div class="clearfix">
-					{$tiered_price}
+					{$tiered_price nofilter}
 				</div>
 			</form>
 			{renderElement type='saveMultipleSettingsBtn'}
@@ -160,9 +187,6 @@
 					</tr>
 				</thead>
 				<tbody>
-					{* <pre>
-					{$rules_list|print_r}
-					</pre> *}
 				</tbody>
 			</table>
 
@@ -177,11 +201,6 @@
 				<div class="modal-dialog modal-dialog-centered" role="document" style="width:max-content">
 					<div class="modal-content">
 						<div class="modal-header">
-							{* <h3 class="modal-title" id="exampleModalLongTitle">{l s='Add Rule' mod='productpriceconfig'}
-							</h3>
-							<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-								<span aria-hidden="true">&times;</span>
-							</button> *}
 							<button type="button" class="close" data-dismiss="modal">&times;</button>
 							<h4 class="modal-title">{l s='Add Rule' mod='productpriceconfig'}</h4>
 						</div>
@@ -296,7 +315,6 @@
 
 									<button type="button" class="btn btn-secondary"
 										data-dismiss="modal">{l s='Close' mod='productpriceconfig'}</button>
-									{* <button type="submit" class="btn btn-primary save_as_txt">{l s='Save as text' mod='productpriceconfig'}</button> *}
 									<button type="button" id='saveRule'
 										class="btn btn-primary json_encoded">{l s='Save' mod='productpriceconfig'}</button>
 									<button type="reset" id='resetRule'
@@ -312,11 +330,6 @@
 				<div class="modal-dialog modal-dialog-centered" role="document" style="width:max-content">
 					<div class="modal-content">
 						<div class="modal-header">
-							{* <h3 class="modal-title" id="exampleModalLongTitle">{l s='Add Rule' mod='productpriceconfig'}
-							</h3>
-							<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-								<span aria-hidden="true">&times;</span>
-							</button> *}
 							<button type="button" class="close" data-dismiss="modal">&times;</button>
 							<h4 class="modal-title">{l s='Add Rule' mod='productpriceconfig'}</h4>
 						</div>
@@ -431,7 +444,6 @@
 
 									<button type="button" class="btn btn-secondary"
 										data-dismiss="modal">{l s='Close' mod='productpriceconfig'}</button>
-									{* <button type="submit" class="btn btn-primary save_as_txt">{l s='Save as text' mod='productpriceconfig'}</button> *}
 									<button type="button" id='saveRule'
 										class="btn btn-primary json_encoded">{l s='Save' mod='productpriceconfig'}</button>
 									<button type="reset" id='resetRule'
@@ -490,6 +502,98 @@
 		</div>
 	</div>
 </div>
+
+{* ── Formula Condition Modal ── *}
+<div class="modal fade" id="formula_condition_modal" tabindex="-1" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal">&times;</button>
+				<h4 class="modal-title">{l s='Add Formula Condition' mod='productpriceconfig'}</h4>
+			</div>
+			<div class="modal-body">
+				<form id="formula_condition_form">
+					<input type="hidden" id="fc_id_formula_condition" value="">
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group">
+								<label for="fc_id_variable">{l s='Target Variable' mod='productpriceconfig'}</label>
+								<select class="form-control" id="fc_id_variable">
+									<option value="">-- {l s='Select variable' mod='productpriceconfig'} --</option>
+									{foreach $variables as $t}
+										<option value="{$t['id_variable']}" data-type="{$t['variable_type']}">{$t['variable_name']}</option>
+									{/foreach}
+								</select>
+								<i id="fc_variable_spinner" class="fa fa-spinner fa-spin"></i>
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group" id="fc_value_wrap" style="display:none;">
+								<label for="fc_id_option" id="fc_value_label">{l s='Variable Value' mod='productpriceconfig'}</label>
+								<div id="fc_value_select">
+									<select class="form-control" id="fc_id_option">
+										<option value="0">--</option>
+									</select>
+								</div>
+								<div id="fc_value_input" style="display:none;">
+									<input type="text" class="form-control" id="fc_custom_value" placeholder="Enter value">
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-4">
+							<div class="form-group">
+								<label for="fc_surcharge_type">{l s='Surcharge Type' mod='productpriceconfig'}</label>
+								<select class="form-control" id="fc_surcharge_type">
+									<option value="percentage">{l s='Percentage' mod='productpriceconfig'}</option>
+									<option value="fixed">{l s='Fixed Amount' mod='productpriceconfig'}</option>
+								</select>
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label for="fc_amount">{l s='Amount' mod='productpriceconfig'}</label>
+								<input type="number" step="0.01" class="form-control" id="fc_amount" placeholder="20">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label for="fc_apply_type">{l s='Apply Type' mod='productpriceconfig'}</label>
+								<select class="form-control" id="fc_apply_type">
+									<option value="total">{l s='Apply on Total Price' mod='productpriceconfig'}</option>
+									<option value="per_unit">{l s='Apply Per Unit' mod='productpriceconfig'}</option>
+								</select>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-12">
+							<div class="form-group">
+								<label for="fc_notes">{l s='Notes' mod='productpriceconfig'}</label>
+								<textarea class="form-control" id="fc_notes" rows="3"></textarea>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-12">
+							<div class="form-group">
+								<label>
+									<input type="checkbox" id="fc_active" checked> {l s='Active' mod='productpriceconfig'}
+								</label>
+							</div>
+						</div>
+					</div>
+				</form>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-dismiss="modal">{l s='Close' mod='productpriceconfig'}</button>
+				<button type="button" class="btn btn-primary" id="btn-save-condition" data-mode="create">{l s='Save' mod='productpriceconfig'}</button>
+			</div>
+		</div>
+	</div>
+</div>
+
 {* since 3.0.2 *}
 <script>
 	var ajax_action_path = window.location.href.split('#')[0] + '&ajax=1';
@@ -514,28 +618,17 @@
 	});
 	var classList = $('.option_for_disallow select')[0].classList
 
-	//classList.each(function(index,className){
 	$.each(classList, function(index, className) {
-		//	console.log('I am here', $(this).html())
 		console.log(className)
 		if (className == 'active') {
 			console.log('i am in right position')
-			//$(this).multiselect({
-			//	includeSelectAllOption : true,
-			//	nonSelectedText: 'Select an Option'
-			//});
 		}
 	})
-	//$('.option_for_disallow select').multiselect({
-	//	includeSelectAllOption : true,
-	//	nonSelectedText: 'Select an Option',
-	//},'widget').addClass('test');
 
 	$(document).on('click', '.edit-rule', function() {
 		cloneCount = 0;
 		cloneDisallowVariable = 0;
 		var id_rule = $(this).data('id_rule');
-		// Clear previous form data
 		$('#edit_rules_modal #rules_form')[0].reset();
 		$('#edit_rules_modal #id_rule_list').val(id_rule);
 		$('#edit_rules_modal .modal-title').text('Edit Rule');
@@ -555,12 +648,10 @@
 					var rules = JSON.parse(ruleData.rule);
 					var disallow = JSON.parse(ruleData.disallow);
 
-					// convert rules to json format
 					var rulesJson = [];
 					var $container = $('<div class="rules_container"></div>');
 					var $disallow_container = $('<div class="disallow_group"></div>');
 					$.each(rules, function(i, r) {
-						// build one rule row
 						var $row = $($('#clone').html());
 						$row.find('.variables').val(r.variable).attr('id', 'variables' + (
 							i + 1)).attr('name', 'variables' + (i + 1));
@@ -569,7 +660,6 @@
 							1) + '[]');
 						$row.find('.sign').val(r.sign).attr('id', 'sign' + (i + 1)).attr(
 							'name', 'sign' + (i + 1));
-						// show correct constraint input/select
 						$row.find('.options').hide().filter('[data-id_variable="' + r
 							.variable + '"]').show().val(r.option).attr(
 							'name', 'options' + (i + 1) + '[]');
@@ -578,13 +668,11 @@
 						$row.find('.and_or_sign').val(r.and_or_sign).attr('name',
 							'and_or_sign' + (i + 1));
 
-						// disallow section
 						var $dis = $('.disallow_variables').first();
 						$dis.attr('id', 'disallow_variables-' + (i + 1));
 						$dis.find('.disallow').val(r.disallow_variable).attr('name',
 							'disallow' + (i + 1) + '[]');
 
-						// append to container
 						var $wrapper = $('<div>', {
 							id: (i == 0 ? 'clone' : 'clone-' + i),
 							class: 'clone_div'
@@ -592,7 +680,6 @@
 
 						$container.append($wrapper);
 
-						// keep json for later
 						rulesJson.push(r);
 						cloneCount++;
 					});
@@ -600,8 +687,6 @@
 					$container.append('<input type="hidden" id="id_product" value="{$id_product}">');
 
 					$.each(disallow, function(i, r) {
-						// For each disallow item, dynamically build disallow structure, as above for rules. 
-						// Start index from i+1 to keep consistent naming, or 1 if not array of objects.
 						var $disallowWrapper = $('<div>', {
 							id: 'disallow_variables-' + (i + 1),
 							class: 'disallow_variables clone',
@@ -611,7 +696,6 @@
 							}
 						});
 
-						// DISALLOW VARIABLE SELECT
 						var $formGroupDisallow = $('<div class="form-group rule_div">')
 							.append('<label for="rules">Disallow</label>');
 						var $multiSelectDiv = $('<div class="disallow_multiselect"></div>');
@@ -620,7 +704,6 @@
 								1) + '[]"></select>');
 						$selectDisallow.append(
 							'<option value="">Please Select Option</option>');
-						// Populate disallow variable select (copy-paste option HTML, or use PHP passed list)
 						{foreach $globle_variables as $t}
 							$selectDisallow.append('<option value="{$t["id_variable"]}">{$t["name"]}</option>');
 						{/foreach}
@@ -632,7 +715,6 @@
 							'<span class="error_msg_for_disallow_variable"></span>');
 						$formGroupDisallow.append($multiSelectDiv);
 
-						// OPTIONS FOR DISALLOW
 						var $optionDisallowGroup = $(
 								'<div class="form-group option_for_disallow rule_div">')
 							.append('<label for="rules">Options for disallow</label>');
@@ -646,8 +728,6 @@
 						$selectDisallowOption.append(
 							'<option value="">Please select variable first</option>');
 
-						// Use AJAX to load options for the selected disallow variable,
-						// and directly set the HTML of $selectDisallowOption using the returned HTML.
 						if (r.disallow_variable && r.disallow_variable[0]) {
 							$.ajax({
 								type: 'POST',
@@ -674,12 +754,10 @@
 							'<span class="error_msg_for_disallow_option"></span>');
 						$optionDisallowGroup.append($multiselectMainDiv);
 
-						// ADD MORE BUTTON
 						var $addMoreBtn = $(
 							'<button class="add_more form-group" style="background:white;border: 1px solid #bbcdd2;padding: 10px;border-radius: 4px;"><label></label><i class="fa fa-plus"></i></button>'
 						);
 
-						// Append groups to wrapper
 						$disallowWrapper.append($formGroupDisallow)
 							.append($optionDisallowGroup)
 							.append($addMoreBtn);
@@ -690,7 +768,6 @@
 
 					$container.append($disallow_container);
 
-					// $('.rules_container').append($container);
 					$('#edit_rules_modal .rules_container').replaceWith($container);
 
 					$('.disallow_option').multiselect({
@@ -721,7 +798,6 @@
 
 		const $form = $modal.find('#rules_form');
 
-		// ✅ only visible + enabled inputs inside this modal
 		var formData = $form
 			.find(':input:visible:not(:disabled)')
 			.serializeArray();
@@ -732,7 +808,6 @@
 		formData.push({ name: 'id_product', value: id_product });
 		formData.push({ name: 'id_rule_list', value: id_rule_list });
 
-		// 🔥 disallow options scoped to modal
 		$modal.find('.disallow_option').each(function(index) {
 			formData.push({
 				name: 'disallow_options' + (index + 1),
@@ -773,7 +848,6 @@
 		});
 	});
 
-	// helper: populate disallow option select
 	function loadDisallowOptions($select, varId, optId) {
 		$.ajax({
 			url: ajax_action_path + '&action=AjaxGetVariableOptions&id_variable=' + varId,

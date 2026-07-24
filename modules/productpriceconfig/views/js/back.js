@@ -1378,5 +1378,5 @@ function update_option_select_box(variable_id) {
 }
 
 $(document).on('hidden.bs.modal', function () {
-  resetRulesModal($(this));
+  //resetRulesModal($(this));
 });

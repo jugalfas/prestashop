@@ -1,0 +1,18 @@
+{shop_name}
+================================
+
+Order Created
+
+Your quotation has been converted to an order.
+
+Reference: {offer_reference}
+Title: {offer_title}
+Status: {offer_status}
+Expiry: {offer_expiry}
+
+Products:
+{product_list}
+
+View offer: {offer_link}
+
+{shop_name} - {shop_url}

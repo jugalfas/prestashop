@@ -1,0 +1,18 @@
+{shop_name}
+================================
+
+Quotation Reopened
+
+Your quotation has been reopened.
+
+Reference: {offer_reference}
+Title: {offer_title}
+Status: {offer_status}
+Expiry: {offer_expiry}
+
+Products:
+{product_list}
+
+View offer: {offer_link}
+
+{shop_name} - {shop_url}
