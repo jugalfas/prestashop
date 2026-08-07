@@ -24,6 +24,14 @@ class ProductPriceConfigOfferListModuleFrontController extends ModuleFrontContro
         $guest_email = '';
         $offers = [];
 
+        // Check if we need to associate a guest offer after login
+        $associate_offer_id = (int) Tools::getValue('associate_offer', 0);
+        if ($is_logged && $associate_offer_id) {
+            $service = new OfferService($this->module);
+            $service->associateGuestOffer($associate_offer_id, (int) $this->context->customer->id);
+            Tools::redirect($this->context->link->getModuleLink($this->module->name, 'offerdetail', ['id_offer' => $associate_offer_id], true));
+        }
+
         if ($is_logged) {
             $offers = Offer::getByCustomer((int) $this->context->customer->id);
         } else {
@@ -86,9 +94,10 @@ class ProductPriceConfigOfferListModuleFrontController extends ModuleFrontContro
 
         $product_count = (int) $offer['total_products'];
 
-        // Get product thumbnails
+        // Get product thumbnails and names
         $products = OfferProduct::getByOffer((int) $offer['id_offer']);
         $thumbnails = [];
+        $productNames = [];
         foreach (array_slice($products, 0, 4) as $p) {
             if (!empty($p['image_id'])) {
                 $thumbnails[] = $this->context->link->getImageLink(
@@ -96,6 +105,9 @@ class ProductPriceConfigOfferListModuleFrontController extends ModuleFrontContro
                     $p['image_id'],
                     'small_default'
                 );
+            }
+            if (!empty($p['product_name'])) {
+                $productNames[] = $p['product_name'];
             }
         }
 
@@ -111,6 +123,7 @@ class ProductPriceConfigOfferListModuleFrontController extends ModuleFrontContro
             'date_upd' => $offer['date_upd'],
             'detail_url' => $detail_url,
             'thumbnails' => $thumbnails,
+            'product_names' => implode(', ', $productNames),
             'is_expired' => !empty($offer['expire_date']) && strtotime($offer['expire_date']) < time(),
         ];
     }

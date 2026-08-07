@@ -18,10 +18,18 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <input type="text" id="offer-date-from" class="form-control datepicker" placeholder="{l s='From date' mod='productpriceconfig'}" value="{$filters.date_from}" />
+                <div class="input-group date-picker-group">
+                    <span class="input-group-addon"><i class="icon icon-calendar"></i></span>
+                    <input type="text" id="offer-date-from" class="form-control offer-datepicker" placeholder="{l s='From date' mod='productpriceconfig'}" value="{$filters.date_from}" readonly />
+                    <span class="input-group-addon offer-date-clear" data-target="offer-date-from" style="cursor:pointer;{if !$filters.date_from}display:none;{/if}"><i class="icon icon-remove"></i></span>
+                </div>
             </div>
             <div class="col-md-2">
-                <input type="text" id="offer-date-to" class="form-control datepicker" placeholder="{l s='To date' mod='productpriceconfig'}" value="{$filters.date_to}" />
+                <div class="input-group date-picker-group">
+                    <span class="input-group-addon"><i class="icon icon-calendar"></i></span>
+                    <input type="text" id="offer-date-to" class="form-control offer-datepicker" placeholder="{l s='To date' mod='productpriceconfig'}" value="{$filters.date_to}" readonly />
+                    <span class="input-group-addon offer-date-clear" data-target="offer-date-to" style="cursor:pointer;{if !$filters.date_to}display:none;{/if}"><i class="icon icon-remove"></i></span>
+                </div>
             </div>
             <div class="col-md-1">
                 <button type="button" id="btn-filter-offers" class="btn btn-primary btn-block">
@@ -48,7 +56,7 @@
             </thead>
             <tbody>
                 {foreach from=$offers item=offer}
-                    <tr class="{if $offer.is_expired}warning{/if}{if $offer.all_accepted}success{/if}">
+                    <tr class="{if $offer.status == 'converted_to_order'}offer-row-converted{elseif $offer.is_expired}warning{/if}{if $offer.all_accepted && $offer.status != 'converted_to_order'}success{/if}">
                         <td>{$offer.id_offer}</td>
                         <td>
                             <a href="{$offer.detail_url}"><strong>{$offer.reference}</strong></a>
@@ -67,7 +75,7 @@
                             <span class="badge">{$offer.product_count}</span>
                         </td>
                         <td>
-                            <span class="label label-{if $offer.status == 'accepted'}success{elseif $offer.status == 'rejected' || $offer.status == 'cancelled' || $offer.status == 'expired'}danger{elseif $offer.status == 'price_offered'}warning{else}info{/if}">
+                            <span class="label label-{if $offer.status == 'converted_to_order'}label-converted{elseif $offer.status == 'accepted'}success{elseif $offer.status == 'rejected' || $offer.status == 'cancelled' || $offer.status == 'expired'}danger{elseif $offer.status == 'price_offered'}warning{else}info{/if}">
                                 {$offer.status_label}
                             </span>
                         </td>
@@ -81,12 +89,17 @@
                         </td>
                         <td><small>{$offer.date_add}</small></td>
                         <td>
-                            <a href="{$offer.detail_url}" class="btn btn-default btn-sm" title="{l s='View' mod='productpriceconfig'}">
-                                <i class="icon icon-eye-open"></i>
-                            </a>
-                            <button type="button" class="btn btn-danger btn-sm btn-delete-offer" data-id-offer="{$offer.id_offer}" title="{l s='Delete' mod='productpriceconfig'}">
-                                <i class="icon icon-trash"></i>
-                            </button>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{$offer.detail_url}" class="btn btn-default btn-sm" title="{l s='View' mod='productpriceconfig'}">
+                                    <i class="icon icon-eye-open"></i>
+                                </a>
+                                <button type="button" class="btn btn-default btn-sm btn-print-pdf-row" data-id-offer="{$offer.id_offer}" title="{l s='Print PDF' mod='productpriceconfig'}">
+                                    <i class="icon icon-print"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm btn-delete-offer" data-id-offer="{$offer.id_offer}" title="{l s='Delete' mod='productpriceconfig'}">
+                                    <i class="icon icon-trash"></i>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 {foreachelse}

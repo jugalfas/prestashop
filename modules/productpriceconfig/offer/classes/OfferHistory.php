@@ -138,4 +138,18 @@ class OfferHistory extends ObjectModel
 
         return Db::getInstance()->executeS($sql) ?: [];
     }
+
+    /**
+     * Delete all history entries for an offer.
+     * Used when duplicating an offer from admin to reset the history.
+     *
+     * @param int $id_offer
+     * @return bool
+     */
+    public static function deleteByOffer($id_offer)
+    {
+        return Db::getInstance()->execute(
+            'DELETE FROM ' . _DB_PREFIX_ . 'offer_history WHERE id_offer = ' . (int) $id_offer
+        );
+    }
 }

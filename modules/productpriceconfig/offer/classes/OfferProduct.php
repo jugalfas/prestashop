@@ -45,6 +45,9 @@ class OfferProduct extends ObjectModel
     public $offered_price;
 
     /** @var float|null */
+    public $estimated_price;
+
+    /** @var float|null */
     public $discounted_amount;
 
     /** @var float|null */
@@ -58,6 +61,9 @@ class OfferProduct extends ObjectModel
 
     /** @var string */
     public $product_status = self::STATUS_WAITING_FOR_PRICE;
+
+    /** @var string 'normal' or 'custom' */
+    public $product_type = 'normal';
 
     /** @var string */
     public $admin_note;
@@ -85,11 +91,13 @@ class OfferProduct extends ObjectModel
             'configuration_json'   => array('type' => self::TYPE_HTML,   'validate' => 'isCleanHtml', 'required' => false),
             'uploaded_file'         => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => false, 'size' => 500),
             'offered_price'        => array('type' => self::TYPE_FLOAT,  'validate' => 'isFloat', 'required' => false),
+            'estimated_price'      => array('type' => self::TYPE_FLOAT,  'validate' => 'isFloat', 'required' => false),
             'discounted_amount'    => array('type' => self::TYPE_FLOAT,  'validate' => 'isFloat', 'required' => false),
             'weight'               => array('type' => self::TYPE_FLOAT,  'validate' => 'isFloat', 'required' => false),
             'production_time'      => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => false, 'size' => 255),
             'id_currency'          => array('type' => self::TYPE_INT,    'validate' => 'isUnsignedId', 'required' => false),
             'product_status'       => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => true, 'size' => 32),
+            'product_type'         => array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'required' => false, 'size' => 20),
             'admin_note'           => array('type' => self::TYPE_HTML,   'validate' => 'isCleanHtml', 'required' => false),
             'customer_note'        => array('type' => self::TYPE_HTML,   'validate' => 'isCleanHtml', 'required' => false),
             'quantity'             => array('type' => self::TYPE_INT,    'validate' => 'isUnsignedInt', 'required' => false),
@@ -107,7 +115,7 @@ class OfferProduct extends ObjectModel
     public static function getByOffer($id_offer)
     {
         $sql = 'SELECT op.*, pl.name AS product_name, pl.link_rewrite, pl.description_short,
-                    p.reference AS product_reference, p.id_image,
+                    p.reference AS product_reference, i.id_image,
                     i.id_image AS image_id
                 FROM ' . _DB_PREFIX_ . 'offer_product op
                 LEFT JOIN ' . _DB_PREFIX_ . 'product p ON p.id_product = op.id_product
@@ -189,6 +197,9 @@ class OfferProduct extends ObjectModel
 
         if (isset($data['offered_price'])) {
             $sets[] = 'offered_price = ' . (float) $data['offered_price'];
+        }
+        if (isset($data['estimated_price'])) {
+            $sets[] = 'estimated_price = ' . (float) $data['estimated_price'];
         }
         if (isset($data['discounted_amount'])) {
             $sets[] = 'discounted_amount = ' . (float) $data['discounted_amount'];

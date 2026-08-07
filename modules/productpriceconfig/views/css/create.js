@@ -14,13 +14,11 @@
         isLogged: false,
         currentIdOffer: 0,
         currentIdProduct: 0,
-        currentProductType: 'normal',
         searchDebounceTimer: null,
         searchSelectedIndex: -1,
         searchResults: [],
         uploadedFiles: [],
         pendingFileIds: [],
-        selectedProduct: null,
 
         init: function () {
             this.ajaxUrl = $('#ajax-url').val();
@@ -36,185 +34,6 @@
             this.bindListPageEvents();
             this.bindUploadEvents();
             this.bindAddToQuoteEvents();
-            this.bindConfigSummaryToggle();
-            this.bindCustomQuoteChip();
-            this.renderRecentProducts();
-            this.loadDraftFromStorage();
-
-            // Auto-focus search and load default products on page load
-            var self = this;
-            setTimeout(function () {
-                $('#product-search-input').focus();
-                self.showDefaultProducts();
-            }, 100);
-        },
-
-        // ── Draft Quote Cart Persistence (localStorage) ──
-
-        draftStorageKey: function () {
-            return 'ppc_draft_offer_' + (window.ppcCustomerId || 'guest');
-        },
-
-        saveDraftToStorage: function (idOffer) {
-            try {
-                localStorage.setItem(this.draftStorageKey(), String(idOffer));
-            } catch (e) {}
-        },
-
-        clearDraftFromStorage: function () {
-            try {
-                localStorage.removeItem(this.draftStorageKey());
-            } catch (e) {}
-        },
-
-        loadDraftFromStorage: function () {
-            var self = this;
-            if (this.currentIdOffer) {
-                this.refreshQuoteCart();
-                return;
-            }
-            var idOffer = 0;
-            try {
-                idOffer = parseInt(localStorage.getItem(this.draftStorageKey())) || 0;
-            } catch (e) {}
-            if (!idOffer) {
-                return;
-            }
-            this.currentIdOffer = idOffer;
-            $('#current-id-offer').val(idOffer);
-            this.refreshQuoteCart();
-        },
-
-        // ── Recently Selected Products (localStorage) ──
-
-        recentProductsKey: function () {
-            return 'ppc_recent_products_' + (window.ppcCustomerId || 'guest');
-        },
-
-        getRecentProducts: function () {
-            try {
-                return JSON.parse(localStorage.getItem(this.recentProductsKey())) || [];
-            } catch (e) {
-                return [];
-            }
-        },
-
-        saveRecentProducts: function (list) {
-            try {
-                localStorage.setItem(this.recentProductsKey(), JSON.stringify(list));
-            } catch (e) {}
-        },
-
-        addRecentProduct: function (product) {
-            var list = this.getRecentProducts();
-            // Remove existing entry
-            list = list.filter(function (p) { return p.id_product !== product.id_product; });
-            // Prepend most recent
-            list.unshift({
-                id_product: product.id_product,
-                name: product.name,
-                reference: product.reference || '',
-                description_short: product.description_short || '',
-                image: product.image || ''
-            });
-            // Cap at 6
-            if (list.length > 6) {
-                list = list.slice(0, 6);
-            }
-            this.saveRecentProducts(list);
-            this.renderRecentProducts();
-        },
-
-        removeRecentProduct: function (idProduct) {
-            var list = this.getRecentProducts().filter(function (p) { return p.id_product !== idProduct; });
-            this.saveRecentProducts(list);
-            this.renderRecentProducts();
-        },
-
-        renderRecentProducts: function () {
-            var self = this;
-            var list = this.getRecentProducts();
-            var $section = $('#recent-products-section');
-            var $container = $('#recent-products-list');
-
-            if (!list.length) {
-                $section.slideUp(200);
-                return;
-            }
-
-            var html = '';
-            $.each(list, function (i, p) {
-                html += '<div class="recent-product-chip" data-id-product="' + p.id_product + '">';
-                html += '<div class="rpc-thumb">';
-                if (p.image) {
-                    html += '<img src="' + p.image + '" alt="" />';
-                } else {
-                    html += '<i class="material-icons">image</i>';
-                }
-                html += '</div>';
-                html += '<span class="rpc-name">' + self.escapeHtml(p.name) + '</span>';
-                html += '<button type="button" class="rpc-remove" data-id-product="' + p.id_product + '" title="Remove">';
-                html += '<i class="material-icons">close</i>';
-                html += '</button>';
-                html += '</div>';
-            });
-
-            $container.html(html);
-            $section.slideDown(200);
-
-            // Bind click on chip (not on remove button)
-            $container.find('.recent-product-chip').on('click', function (e) {
-                if ($(e.target).closest('.rpc-remove').length) return;
-                var idProduct = parseInt($(this).data('id-product'));
-                var product = null;
-                $.each(list, function (i, p) {
-                    if (p.id_product === idProduct) { product = p; return false; }
-                });
-                if (product) {
-                    self.selectProduct(product);
-                }
-            });
-
-            // Bind remove
-            $container.find('.rpc-remove').on('click', function (e) {
-                e.stopPropagation();
-                var idProduct = parseInt($(this).data('id-product'));
-                self.removeRecentProduct(idProduct);
-            });
-        },
-
-        // ── Custom Quote Product Chip ──
-
-        bindCustomQuoteChip: function () {
-            var self = this;
-            $('#btn-custom-quote-product').on('click', function () {
-                var idProduct = parseInt($(this).data('id-product'));
-                var product = {
-                    id_product: idProduct,
-                    name: 'Custom Product Request',
-                    reference: '',
-                    description_short: '',
-                    image: $(this).find('.cqc-thumb img').attr('src') || ''
-                };
-                self.selectProduct(product);
-            });
-        },
-
-        // ── Configuration Summary: Show More / Show Less ──
-
-        bindConfigSummaryToggle: function () {
-            $(document).on('click', '.ppc-cs-toggle', function (e) {
-                e.preventDefault();
-                var $summary = $(this).closest('.ppc-config-summary');
-                var expanded = $(this).data('expanded') === 1;
-                if (expanded) {
-                    $summary.removeClass('ppc-cs-expanded');
-                    $(this).data('expanded', 0);
-                } else {
-                    $summary.addClass('ppc-cs-expanded');
-                    $(this).data('expanded', 1);
-                }
-            });
         },
 
         // ── Product Search ──
@@ -231,7 +50,6 @@
                     return;
                 }
 
-                self.showSearchSpinner();
                 self.searchDebounceTimer = setTimeout(function () {
                     self.searchProducts(query);
                 }, 300);
@@ -260,17 +78,8 @@
             });
         },
 
-        showSearchSpinner: function () {
-            $('#offer-search-icon').html('<div class="ppc-search-spinner"></div>');
-        },
-
-        hideSearchSpinner: function () {
-            $('#offer-search-icon').html('search');
-        },
-
         showDefaultProducts: function () {
             var self = this;
-            self.showSearchSpinner();
             $.ajax({
                 url: this.ajaxUrl,
                 type: 'POST',
@@ -280,9 +89,6 @@
                     if (resp.success) {
                         self.renderSearchResults(resp.products);
                     }
-                },
-                complete: function () {
-                    self.hideSearchSpinner();
                 }
             });
         },
@@ -290,7 +96,7 @@
         searchProducts: function (query) {
             var self = this;
             $('#search-clear-btn').show();
-            self.showSearchSpinner();
+
             $.ajax({
                 url: this.ajaxUrl,
                 type: 'POST',
@@ -303,9 +109,6 @@
                 },
                 error: function () {
                     self.notify('error', 'Search failed. Please try again.');
-                },
-                complete: function () {
-                    self.hideSearchSpinner();
                 }
             });
         },
@@ -348,8 +151,7 @@
 
             $('.search-result-card').on('click', function () {
                 var index = parseInt($(this).data('index'));
-                self.currentProductType = 'normal';
-                    self.selectProduct(self.searchResults[index]);
+                self.selectProduct(self.searchResults[index]);
             });
         },
 
@@ -374,8 +176,7 @@
                 case 'Enter':
                     e.preventDefault();
                     if (self.searchSelectedIndex >= 0 && self.searchResults[self.searchSelectedIndex]) {
-                        self.currentProductType = 'normal';
-                    self.selectProduct(self.searchResults[self.searchSelectedIndex]);
+                        self.selectProduct(self.searchResults[self.searchSelectedIndex]);
                     }
                     break;
                 case 'Escape':
@@ -405,27 +206,14 @@
 
         selectProduct: function (product) {
             var self = this;
-            if (!self.currentProductType) self.currentProductType = 'normal';
             self.currentIdProduct = product.id_product;
-            self.selectedProduct = product;
-            // Clear previously uploaded files when selecting a new product
-            self.clearUploadedFiles();
+            self.uploadedFiles = [];
+            self.pendingFileIds = [];
 
             $('#search-results-dropdown').hide();
             $('#product-search-input').hide();
             $('#search-clear-btn').hide();
 
-            // Show selected preview inside search box
-            $('#ssp-name').text(product.name);
-            $('#ssp-desc').text(product.description_short || '');
-            if (product.image) {
-                $('#ssp-image').attr('src', product.image).show();
-            } else {
-                $('#ssp-image').hide();
-            }
-            $('#search-selected-preview').show();
-
-            // Show selected product card above configurator
             $('#selected-product-name').text(product.name);
             $('#selected-product-reference').text(product.reference || '');
             $('#selected-product-description').text(product.description_short || '');
@@ -437,51 +225,32 @@
             }
             $('#selected-product-card').show();
 
-            // Save to recent products
-            self.addRecentProduct(product);
-
             self.loadConfigurator(product.id_product);
         },
 
         bindProductSelectionEvents: function () {
             var self = this;
 
-            $('#btn-change-product').on('click', function () {
+            $('#btn-remove-product').on('click', function () {
                 self.clearSelectedProduct();
             });
 
-            // Clear button inside search preview
-            $('#ssp-clear-btn').on('click', function () {
+            $('#btn-change-product').on('click', function () {
                 self.clearSelectedProduct();
             });
         },
 
         clearSelectedProduct: function () {
             this.currentIdProduct = 0;
-            this.selectedProduct = null;
-            // DO NOT clear uploadedFiles and pendingFileIds here - they need to persist
-            // while files are being uploaded. They will be cleared after uploads complete.
+            this.uploadedFiles = [];
+            this.pendingFileIds = [];
             $('#selected-product-card').hide();
             $('#configurator-content').html('').hide();
             $('#offer-upload-section').hide();
             $('#offer-product-note-section').hide();
             $('#offer-add-to-quote-section').hide();
             $('#configurator-placeholder').show();
-            $('#product-search-input').val('').show();
-            $('#search-selected-preview').hide();
-            $('#search-results-dropdown').hide().html('');
-            $('#search-clear-btn').hide();
-            $('#product-search-input').focus();
-        },
-
-        /**
-         * Clear uploaded files after confirming upload is complete
-         * Called after all pending uploads finish or when user manually clears files
-         */
-        clearUploadedFiles: function () {
-            this.uploadedFiles = [];
-            this.pendingFileIds = [];
-            this.renderFileList();
+            $('#product-search-input').val('').show().focus();
         },
 
         // ── Configurator ──
@@ -506,9 +275,9 @@
                 success: function (resp) {
                     if (resp.success) {
                         // Strip price/purchase elements from the configurator HTML
-                        // and already excludes all price/purchase elements.
-                        //self.stripPurchaseElements(resp.html);
-                        $('#configurator-content').html(resp.html);
+                        var $html = $('<div>').html(resp.html);
+                        self.stripPurchaseElements($html);
+                        $('#configurator-content').html($html.html());
 
                         // Show upload, note, and add-to-quote sections
                         $('#offer-upload-section').show();
@@ -555,9 +324,8 @@
         bindUploadEvents: function () {
             var self = this;
 
-            $('#offer-drop-zone').on('click', function (e) {
-                // Prevent click triggered from the file input itself
-                if (e.target.id === 'offer-file-input') return;
+            // Click to browse
+            $('#offer-drop-zone').on('click', function () {
                 $('#offer-file-input').click();
             });
 
@@ -685,15 +453,12 @@
             self.renderFileList();
         },
 
-        renderFileList: function (onQuotaCart) {
+        renderFileList: function () {
             var self = this;
             var html = '';
 
             if (!self.uploadedFiles.length) {
                 $('#offer-file-list').html('');
-                $('#quote-cart-uploads').html('');
-                
-                
                 return;
             }
 
@@ -727,9 +492,6 @@
             });
 
             $('#offer-file-list').html(html);
-            if (onQuotaCart) {
-                $('#quote-cart-uploads').html(html);
-            }
         },
 
         updateFileStatus: function (fileId, status, text) {
@@ -753,16 +515,6 @@
             self.renderFileList();
         },
 
-        updateFileProgressOnQuotaCart: function (fileId, percent) {
-            var self = this;
-            $.each(self.uploadedFiles, function (i, f) {
-                if (f.id === fileId) {
-                    f.progress = percent;
-                }
-            });
-            self.renderFileList(true);
-        },
-
         showUploadError: function (msg) {
             $('#offer-upload-error').text(msg).show();
         },
@@ -778,11 +530,11 @@
         bindAddToQuoteEvents: function () {
             var self = this;
             $('#btn-add-to-quote').on('click', function () {
-                self.collectConfigAndAddToQuote(this);
+                self.collectConfigAndAddToQuote();
             });
         },
 
-        collectConfigAndAddToQuote: function (btn) {
+        collectConfigAndAddToQuote: function () {
             var self = this;
 
             if (!self.currentIdProduct) {
@@ -790,71 +542,42 @@
                 return;
             }
 
-            var $btn = $(btn || '#btn-add-to-quote');
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i> Adding...');
-
-            // Read the ACTUAL selected values from the real <select class="select_box_for_url">
-            // elements — ppc-bridge.js updates these (not the hidden inputs) and front.js's
-            // change-listener keeps the hidden input in sync, but reading the select directly
-            // is the source of truth and avoids stale default values.
+            // Collect configuration from the configurator form
             var config = {};
             var quantity = 1;
 
-            $('#configurator-content').find('select.select_box_for_url').each(function () {
-                var $sel = $(this);
-                var varName = $sel.data('variable-name');
-                var formulaName = $sel.data('formula-name') || '';
-                var val = $sel.val();
-
-                // Find the matching hidden input to get the variable_XX key
-                var $hidden = $('#configurator-content').find('input.btn-select-input[data-variable-name="' + varName + '"]').first();
-                var key;
-                if ($hidden.length && $hidden.attr('name')) {
-                    key = $hidden.attr('name');
-                } else {
-                    key = 'variable_' + varName;
-                }
-                config[key] = val;
-
-                if (formulaName === 'oplage' || formulaName === 'quantity') {
-                    quantity = parseInt(val, 10) || 1;
-                }
-            });
-
-            // Read numeric/text inputs (steppers, text fields) — these ARE the source of truth
-            $('#configurator-content').find('input[type="number"][name^="variable_"]').each(function () {
+            // Collect hidden inputs with variable data
+            $('#configurator-content').find('input[name^="variable_"]').each(function () {
                 var $el = $(this);
-                config[$el.attr('name')] = $el.val();
-                var formulaName = $el.data('formula-name') || '';
-                if (formulaName === 'oplage' || formulaName === 'quantity' || $el.attr('id') === 'qty_input') {
-                    quantity = parseInt($el.val(), 10) || 1;
+                var name = $el.attr('name');
+                var val = $el.val();
+                config[name] = val;
+
+                // Check if this is a quantity variable (type 1 or 4 with number input)
+                if ($el.is('input[type="number"]')) {
+                    var formulaName = $el.data('formula-name') || '';
+                    if (formulaName === 'oplage' || formulaName === 'quantity' || $el.attr('id') === 'qty_input') {
+                        quantity = parseInt(val) || 1;
+                    }
                 }
             });
 
+            // Also collect from visible selects
+            $('#configurator-content').find('select[name^="variable_"]').each(function () {
+                var $el = $(this);
+                var name = $el.attr('name');
+                config[name] = $el.val();
+            });
+
+            // Collect from text inputs
             $('#configurator-content').find('input[type="text"][name^="variable_"]').each(function () {
                 var $el = $(this);
                 config[$el.attr('name')] = $el.val();
             });
 
-            // Read hidden type-7 and type-3 fields (always present, never change)
-            $('#configurator-content').find('input[type="hidden"][name^="variable_"]').each(function () {
-                var $el = $(this);
-                // Skip btn-select-input ones — already handled via select above
-                if ($el.hasClass('btn-select-input')) {
-                    // Only set if not already captured from the select
-                    var key = $el.attr('name');
-                    if (config[key] === undefined) {
-                        config[key] = $el.val();
-                    }
-                } else {
-                    config[$el.attr('name')] = $el.val();
-                }
-            });
-
             var customerNote = $('#offer-product-note').val() || '';
 
-            // Validate via server-side validation (required fields + banned combinations)
+            // Validate via banned combination check first
             $('#offer-config-error').hide();
 
             $.ajax({
@@ -863,30 +586,28 @@
                 dataType: 'json',
                 data: $.extend({ action: 'validate-configuration', id_product: self.currentIdProduct }, config),
                 success: function (resp) {
-                    if (resp.success && resp.validation && !resp.validation.valid) {
-                        var errs = resp.validation.errors || ['Configuration is invalid.'];
-                        $('#offer-config-error').html(errs.join('<br>')).show();
-                        $btn.prop('disabled', false).html(originalHtml);
+                    if (resp.success && resp.validation && resp.validation.banned) {
+                        $('#offer-config-error').text(resp.validation.reason || 'This combination is not allowed.').show();
                         return;
                     }
 
                     // Validation passed, proceed to add product
                     if (!self.currentIdOffer) {
                         self.createDraftOffer(function () {
-                            self.addProductToQuote(config, quantity, customerNote, $btn, originalHtml);
+                            self.addProductToQuote(config, quantity, customerNote);
                         });
                     } else {
-                        self.addProductToQuote(config, quantity, customerNote, $btn, originalHtml);
+                        self.addProductToQuote(config, quantity, customerNote);
                     }
                 },
                 error: function () {
                     // If validation endpoint fails, proceed anyway (server-side will catch it)
                     if (!self.currentIdOffer) {
                         self.createDraftOffer(function () {
-                            self.addProductToQuote(config, quantity, customerNote, $btn, originalHtml);
+                            self.addProductToQuote(config, quantity, customerNote);
                         });
                     } else {
-                        self.addProductToQuote(config, quantity, customerNote, $btn, originalHtml);
+                        self.addProductToQuote(config, quantity, customerNote);
                     }
                 }
             });
@@ -926,7 +647,6 @@
                     if (resp.success) {
                         self.currentIdOffer = resp.id_offer;
                         $('#current-id-offer').val(resp.id_offer);
-                        self.saveDraftToStorage(resp.id_offer);
                         callback();
                     } else {
                         self.notify('error', resp.error || 'Failed to create quotation.');
@@ -938,36 +658,7 @@
             });
         },
 
-        addProductToQuote: function (config, quantity, customerNote, $btn, originalHtml) {
-            var self = this;
-
-            // If editing an existing product, remove the old one first
-            if (self.pendingEditIdOfferProduct) {
-                var editId = self.pendingEditIdOfferProduct;
-                self.pendingEditIdOfferProduct = null;
-
-                $.ajax({
-                    url: self.ajaxUrl,
-                    type: 'POST',
-                    dataType: 'json',
-                    data: {
-                        action: 'remove-product',
-                        id_offer: self.currentIdOffer,
-                        id_offer_product: editId
-                    },
-                    success: function () {
-                        self.doAddProduct(config, quantity, customerNote, $btn, originalHtml);
-                    },
-                    error: function () {
-                        self.doAddProduct(config, quantity, customerNote, $btn, originalHtml);
-                    }
-                });
-            } else {
-                self.doAddProduct(config, quantity, customerNote, $btn, originalHtml);
-            }
-        },
-
-        doAddProduct: function (config, quantity, customerNote, $btn, originalHtml) {
+        addProductToQuote: function (config, quantity, customerNote) {
             var self = this;
 
             $.ajax({
@@ -980,20 +671,17 @@
                     id_product: self.currentIdProduct,
                     configuration_json: JSON.stringify(config),
                     quantity: quantity,
-                    customer_note: customerNote,
-                    product_type: self.currentProductType || 'normal'
+                    customer_note: customerNote
                 },
                 success: function (resp) {
                     if (resp.success) {
                         self.notify('success', 'Product added to quotation.');
+                        self.refreshQuoteCart();
                         $('#btn-submit-offer').prop('disabled', false);
 
                         // Upload any pending files now that we have an offer product
                         if (resp.id_offer_product && self.pendingFileIds.length) {
                             self.uploadPendingFiles(resp.id_offer_product);
-                        } else {
-                            // If no pending files, refresh cart immediately
-                            self.refreshQuoteCart();
                         }
 
                         // Reset the product selection for the next product
@@ -1001,37 +689,17 @@
                     } else {
                         self.notify('error', resp.error || 'Failed to add product.');
                     }
-                    if ($btn) $btn.prop('disabled', false).html(originalHtml);
                 },
                 error: function () {
                     self.notify('error', 'Failed to add product to quotation.');
-                    if ($btn) $btn.prop('disabled', false).html(originalHtml);
                 }
             });
-        },
-
-        showUploadLoadingIndicator: function () {
-            var html = '<p class="text-muted"><i class="material-icons fa-spin">autorenew</i> Uploading files...</p>';
-            $('#quote-cart-empty').html(html).show();
-        },
-
-        hideUploadLoadingIndicator: function () {
-            $('#quote-cart-empty').html('').hide();
         },
 
         uploadPendingFiles: function (idOfferProduct) {
             var self = this;
             var pending = self.pendingFileIds.slice();
             self.pendingFileIds = [];
-            
-            // Track upload count to know when all are done
-            var uploadCount = pending.length;
-            var completedCount = 0;
-
-            // Show loading indicator during upload
-            if (uploadCount > 0) {
-                self.showUploadLoadingIndicator();
-            }
 
             $.each(pending, function (i, item) {
                 var formData = new FormData();
@@ -1049,38 +717,15 @@
                     data: formData,
                     processData: false,
                     contentType: false,
-                    xhr: function () {
-                        var xhr = new window.XMLHttpRequest();
-                        xhr.upload.addEventListener('progress', function (e) {
-                            if (e.lengthComputable) {
-                                var percent = Math.round((e.loaded / e.total) * 100);
-                                self.updateFileProgressOnQuotaCart(item.id, percent);
-
-                            }
-                        }, false);
-                        return xhr;
-                    },
                     success: function (resp) {
-                        completedCount++;
                         if (resp.success) {
-                            self.updateFileStatus(item.id, 'done', 'Uploaded successfully');
+                            self.updateFileStatus(item.id, 'done', 'Uploaded');
                         } else {
                             self.updateFileStatus(item.id, 'error', resp.error || 'Upload failed');
                         }
-                        // If all uploads are done, refresh the quote cart to show attachment count
-                        if (completedCount === uploadCount) {
-                            self.hideUploadLoadingIndicator();
-                            self.refreshQuoteCart();
-                        }
                     },
                     error: function () {
-                        completedCount++;
                         self.updateFileStatus(item.id, 'error', 'Upload failed');
-                        // If all uploads are done, refresh the quote cart
-                        if (completedCount === uploadCount) {
-                            self.hideUploadLoadingIndicator();
-                            self.refreshQuoteCart();
-                        }
                     }
                 });
             });
@@ -1092,16 +737,7 @@
             var self = this;
             $(document).on('click', '.btn-remove-quote-product', function () {
                 var idOfferProduct = $(this).data('id-offer-product');
-                var $btn = $(this);
-                if ($btn.prop('disabled')) return;
-                var originalHtml = $btn.html();
-                $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i>');
-                self.removeQuoteProduct(idOfferProduct, $btn, originalHtml);
-            });
-
-            $(document).on('click', '.btn-edit-quote-product', function () {
-                var idOfferProduct = $(this).data('id-offer-product');
-                self.editQuoteProduct(idOfferProduct);
+                self.removeQuoteProduct(idOfferProduct);
             });
         },
 
@@ -1129,51 +765,14 @@
                 $('#quote-cart-empty').show();
                 $('#quote-cart-items').html('');
                 $('#btn-submit-offer').prop('disabled', true);
-            } else {
-                $('#quote-cart-empty').hide();
-                $('#btn-submit-offer').prop('disabled', false);
+                return;
             }
 
-            // Render active uploads (slim progress bars) at top of quote cart
-            var uploadHtml = '';
-            var activeUploads = $.grep(this.uploadedFiles, function (f) {
-                return f.status === 'uploading' || f.status === 'pending';
-            });
-
-            $.each(activeUploads, function (i, f) {
-                var pct = f.progress || 0;
-                uploadHtml += '<div class="quote-cart-upload-item" data-file-id="' + f.id + '">';
-                uploadHtml += '<div class="quote-cart-upload-name"><i class="material-icons" style="font-size:14px;vertical-align:middle;">cloud_upload</i> ' + f.name + '</div>';
-                uploadHtml += '<div class="quote-cart-upload-progress-track">';
-                uploadHtml += '<div class="quote-cart-upload-progress-fill" style="width:' + pct + '%"></div>';
-                uploadHtml += '</div>';
-                uploadHtml += '<div class="quote-cart-upload-status">Uploading' + (pct > 0 ? ' ' + pct + '%' : '...') + '</div>';
-                uploadHtml += '</div>';
-            });
-
-            // Also show recently completed uploads (success flash)
-            var recentUploads = $.grep(this.uploadedFiles, function (f) {
-                return f.status === 'done';
-            });
-
-            $.each(recentUploads, function (i, f) {
-                uploadHtml += '<div class="quote-cart-upload-item upload-done" data-file-id="' + f.id + '">';
-                uploadHtml += '<div class="quote-cart-upload-name"><i class="material-icons" style="font-size:14px;color:#afcb31;vertical-align:middle;">check_circle</i> ' + f.name + '</div>';
-                uploadHtml += '<div class="quote-cart-upload-status done">Uploaded successfully</div>';
-                uploadHtml += '</div>';
-            });
-
-            $('#quote-cart-uploads').html(uploadHtml);
-
-            if (!products.length) return;
-
+            $('#quote-cart-empty').hide();
             var html = '';
             var self = this;
             $.each(products, function (i, p) {
-                html += '<div class="card quote-cart-item-card" data-id-offer-product="' + p.id_offer_product + '">';
-                html += '<button type="button" class="btn btn-sm btn-outline-danger quote-cart-item-delete btn-remove-quote-product" data-id-offer-product="' + p.id_offer_product + '" title="Remove">';
-                html += '<i class="material-icons">delete</i>';
-                html += '</button>';
+                html += '<div class="quote-cart-item" data-id-offer-product="' + p.id_offer_product + '">';
                 html += '<div class="quote-cart-item-image">';
                 if (p.image) {
                     html += '<img src="' + p.image + '" alt="" />';
@@ -1183,20 +782,16 @@
                 html += '</div>';
                 html += '<div class="quote-cart-item-info">';
                 html += '<div class="quote-cart-item-name">' + self.escapeHtml(p.product_name) + '</div>';
-                if (p.product_reference) {
-                    html += '<div class="quote-cart-item-ref small text-muted">' + self.escapeHtml(p.product_reference) + '</div>';
-                }
-                html += '<div class="quote-cart-item-config small text-muted">' + (p.configuration_summary || '') + '</div>';
+                html += '<div class="quote-cart-item-config small text-muted">' + self.escapeHtml(p.configuration_summary || '') + '</div>';
                 html += '<div class="quote-cart-item-qty small">Qty: ' + p.quantity + '</div>';
-                if (p.product_type === 'custom') {
-                    html += '<div class="quote-cart-item-type small"><span class="badge badge-info">Custom Request</span></div>';
-                }
                 if (p.attachment_count > 0) {
                     html += '<div class="quote-cart-item-attachments small"><i class="material-icons">attach_file</i> ' + p.attachment_count + ' file(s)</div>';
                 }
-                if (p.customer_note) {
-                    html += '<div class="quote-cart-item-note small"><i class="material-icons">note</i> ' + self.escapeHtml(p.customer_note) + '</div>';
-                }
+                html += '</div>';
+                html += '<div class="quote-cart-item-actions">';
+                html += '<button type="button" class="btn btn-sm btn-outline-danger btn-remove-quote-product" data-id-offer-product="' + p.id_offer_product + '">';
+                html += '<i class="material-icons">delete</i>';
+                html += '</button>';
                 html += '</div>';
                 html += '</div>';
             });
@@ -1204,7 +799,7 @@
             $('#quote-cart-items').html(html);
         },
 
-        removeQuoteProduct: function (idOfferProduct, $btn, originalHtml) {
+        removeQuoteProduct: function (idOfferProduct) {
             var self = this;
             $.ajax({
                 url: self.ajaxUrl,
@@ -1221,68 +816,6 @@
                         self.refreshQuoteCart();
                     } else {
                         self.notify('error', resp.error || 'Failed to remove product.');
-                        if ($btn) $btn.prop('disabled', false).html(originalHtml);
-                    }
-                },
-                error: function () {
-                    self.notify('error', 'Failed to remove product.');
-                    if ($btn) $btn.prop('disabled', false).html(originalHtml);
-                }
-            });
-        },
-
-        editQuoteProduct: function (idOfferProduct) {
-            var self = this;
-            $.ajax({
-                url: self.ajaxUrl,
-                type: 'POST',
-                dataType: 'json',
-                data: {
-                    action: 'get-offer-product',
-                    id_offer: self.currentIdOffer,
-                    id_offer_product: idOfferProduct
-                },
-                success: function (resp) {
-                    if (resp.success && resp.product) {
-                        var p = resp.product;
-                        self.currentIdProduct = p.id_product;
-
-                        $('#offer-search-section').hide();
-                        $('#selected-product-card').show();
-                        $('#spc-image').attr('src', p.image || '');
-                        $('#spc-title').text(p.product_name);
-                        $('#spc-ref').text(p.product_reference || '');
-                        $('#btn-change-product').show();
-                        $('#btn-remove-product').hide();
-
-                        $('#configurator-content').html('<div class="configurator-loader"><i class="fa fa-spinner fa-spin"></i><p>Loading configurator...</p></div>');
-                        $('#offer-upload-section').hide();
-                        $('#offer-product-note-section').hide();
-                        $('#offer-add-to-quote-section').hide();
-
-                        $.ajax({
-                            url: self.ajaxUrl,
-                            type: 'POST',
-                            dataType: 'json',
-                            data: { action: 'get-configurator', id_product: p.id_product },
-                            success: function (cfgResp) {
-                                if (cfgResp.success) {
-                                    $('#configurator-content').html(cfgResp.html);
-                                    $('#offer-upload-section').show();
-                                    $('#offer-product-note-section').show();
-                                    $('#offer-add-to-quote-section').show();
-                                    if (p.customer_note) {
-                                        $('#offer-product-note').val(p.customer_note);
-                                    }
-                                    self.pendingEditIdOfferProduct = idOfferProduct;
-                                    self.notify('info', 'Edit mode: update configuration and click Add To Quote Cart to save changes.');
-                                } else {
-                                    self.notify('error', cfgResp.error || 'Failed to load configurator.');
-                                }
-                            }
-                        });
-                    } else {
-                        self.notify('error', resp.error || 'Failed to load product for editing.');
                     }
                 }
             });
@@ -1311,40 +844,26 @@
                 return;
             }
 
-            var $btn = $('#btn-submit-offer');
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).addClass('btn-sending').html('<i class="material-icons offer-send-icon-anim">send</i> Sending...');
-
             $.ajax({
                 url: self.ajaxUrl,
                 type: 'POST',
                 dataType: 'json',
                 data: {
                     action: 'submit-offer',
-                    id_offer: self.currentIdOffer,
-                    title: $('#quote-title').val() || '',
-                    customer_note: $('#quote-customer-note').val() || ''
+                    id_offer: self.currentIdOffer
                 },
                 success: function (resp) {
                     if (resp.success) {
-                        self.clearDraftFromStorage();
                         self.notify('success', 'Quotation submitted! We will review and respond soon.');
-                        $btn.html('<i class="material-icons">check_circle</i> Sent!');
                         setTimeout(function () {
-                            if (resp.redirect_url) {
-                                window.location.href = resp.redirect_url;
-                            } else {
-                                window.location.href = self.myOffersUrl;
-                            }
+                            window.location.href = self.myOffersUrl;
                         }, 2000);
                     } else {
                         self.notify('error', resp.error || 'Failed to submit quotation.');
-                        $btn.prop('disabled', false).removeClass('btn-sending').html(originalHtml);
                     }
                 },
                 error: function () {
                     self.notify('error', 'Failed to submit quotation.');
-                    $btn.prop('disabled', false).removeClass('btn-sending').html(originalHtml);
                 }
             });
         },
@@ -1357,38 +876,24 @@
             $('.btn-accept-product').on('click', function () {
                 var idOffer = $(this).data('id-offer');
                 var idOfferProduct = $(this).data('id-offer-product');
-                self.acceptProduct(idOffer, idOfferProduct, this);
+                self.acceptProduct(idOffer, idOfferProduct);
             });
 
             $('.btn-reject-product').on('click', function () {
                 var idOffer = $(this).data('id-offer');
                 var idOfferProduct = $(this).data('id-offer-product');
                 var reason = prompt('Reason for rejection (optional):') || '';
-                self.rejectProduct(idOffer, idOfferProduct, reason, this);
+                self.rejectProduct(idOffer, idOfferProduct, reason);
             });
 
             $('#btn-add-to-cart').on('click', function () {
                 var idOffer = $(this).data('id-offer');
-                self.addToCart(idOffer, this);
-            });
-
-            $('.btn-print-pdf').on('click', function () {
-                var idOffer = $(this).data('id-offer');
-                self.printPdf(idOffer, this);
-            });
-
-            $(document).on('click', '.btn-download-attachment', function () {
-                var idAttachment = $(this).data('id-attachment');
-                self.downloadAttachment(idAttachment, this);
+                self.addToCart(idOffer);
             });
         },
 
-        acceptProduct: function (idOffer, idOfferProduct, btn) {
+        acceptProduct: function (idOffer, idOfferProduct) {
             var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i> Accepting...');
-
             $.ajax({
                 url: self.ajaxUrl,
                 type: 'POST',
@@ -1401,34 +906,16 @@
                 success: function (resp) {
                     if (resp.success) {
                         self.notify('success', 'Product accepted!');
-                        var $panel = $btn.closest('.offer-accept-panel');
-                        $panel.slideUp(200, function () {
-                            $panel.replaceWith(
-                                '<div class="alert alert-success offer-compact-alert offer-accepted-alert">' +
-                                '<i class="material-icons">check_circle</i>' +
-                                '<span>Accepted — You can add this product to your cart.</span>' +
-                                '</div>'
-                            );
-                        });
                         setTimeout(function () { location.reload(); }, 1500);
                     } else {
                         self.notify('error', resp.error || 'Failed to accept.');
-                        $btn.prop('disabled', false).html(originalHtml);
                     }
-                },
-                error: function () {
-                    self.notify('error', 'Failed to accept.');
-                    $btn.prop('disabled', false).html(originalHtml);
                 }
             });
         },
 
-        rejectProduct: function (idOffer, idOfferProduct, reason, btn) {
+        rejectProduct: function (idOffer, idOfferProduct, reason) {
             var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i> Rejecting...');
-
             $.ajax({
                 url: self.ajaxUrl,
                 type: 'POST',
@@ -1442,34 +929,16 @@
                 success: function (resp) {
                     if (resp.success) {
                         self.notify('success', 'Product rejected.');
-                        var $panel = $btn.closest('.offer-accept-panel');
-                        $panel.slideUp(200, function () {
-                            $panel.replaceWith(
-                                '<div class="alert alert-danger offer-compact-alert">' +
-                                '<i class="material-icons">cancel</i>' +
-                                '<span>Rejected — You can request a new price.</span>' +
-                                '</div>'
-                            );
-                        });
                         setTimeout(function () { location.reload(); }, 1500);
                     } else {
                         self.notify('error', resp.error || 'Failed to reject.');
-                        $btn.prop('disabled', false).html(originalHtml);
                     }
-                },
-                error: function () {
-                    self.notify('error', 'Failed to reject.');
-                    $btn.prop('disabled', false).html(originalHtml);
                 }
             });
         },
 
-        addToCart: function (idOffer, btn) {
+        addToCart: function (idOffer) {
             var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i> Adding to cart...');
-
             $.ajax({
                 url: self.ajaxUrl,
                 type: 'POST',
@@ -1481,10 +950,8 @@
                 success: function (resp) {
                     if (resp.success) {
                         self.notify('success', 'Products added to cart!');
-                        $btn.html('<i class="material-icons">check_circle</i> Added!');
                         setTimeout(function () {
-                            var cartUrl = $('#cart-url').val() || $('.cart-link').attr('href') || prestashop.urls.base_url + 'cart?action=show';
-                            window.location.href = cartUrl;
+                            window.location.href = $('.cart-link').attr('href') || '/cart';
                         }, 1500);
                     } else {
                         if (resp.errors && resp.errors.length) {
@@ -1492,95 +959,9 @@
                         } else {
                             self.notify('error', 'Failed to add to cart.');
                         }
-                        $btn.prop('disabled', false).html(originalHtml);
                     }
-                },
-                error: function () {
-                    self.notify('error', 'Failed to add to cart.');
-                    $btn.prop('disabled', false).html(originalHtml);
                 }
             });
-        },
-
-        printPdf: function (idOffer, btn) {
-            var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i> Generating...');
-
-            // Use raw XHR with blob responseType — jQuery's dataType:'json' + blob is unreliable
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', self.ajaxUrl, true);
-            xhr.responseType = 'blob';
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    var disposition = xhr.getResponseHeader('Content-Disposition') || '';
-                    var matches = disposition.match(/filename="?([^"]+)"?/);
-                    var filename = matches ? matches[1] : 'offer.pdf';
-
-                    var blob = xhr.response;
-                    self.triggerDownload(blob, filename);
-                    self.notify('success', 'PDF downloaded.');
-                } else {
-                    self.notify('error', 'Failed to generate PDF.');
-                }
-                $btn.prop('disabled', false).html(originalHtml);
-            };
-
-            xhr.onerror = function () {
-                self.notify('error', 'Failed to generate PDF.');
-                $btn.prop('disabled', false).html(originalHtml);
-            };
-
-            xhr.send('action=print-pdf&id_offer=' + idOffer);
-        },
-
-        downloadAttachment: function (idAttachment, btn) {
-            var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i>');
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', self.ajaxUrl, true);
-            xhr.responseType = 'blob';
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    var disposition = xhr.getResponseHeader('Content-Disposition') || '';
-                    var matches = disposition.match(/filename="?([^"]+)"?/);
-                    var filename = matches ? matches[1] : 'attachment';
-                    self.triggerDownload(xhr.response, filename);
-                }
-                $btn.prop('disabled', false).html(originalHtml);
-            };
-
-            xhr.onerror = function () {
-                self.notify('error', 'Download failed.');
-                $btn.prop('disabled', false).html(originalHtml);
-            };
-
-            xhr.send('action=download-attachment&id_attachment=' + idAttachment);
-        },
-
-        triggerDownload: function (blob, filename) {
-            var url = window.URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        },
-
-        extractFilename: function (xhr) {
-            var disposition = xhr.getResponseHeader('Content-Disposition') || '';
-            var matches = disposition.match(/filename="?([^"]+)"?/);
-            return matches ? matches[1] : null;
         },
 
         // ── List Page Events ──
@@ -1591,51 +972,6 @@
                 var idOffer = $(this).data('id-offer');
                 self.duplicateOffer(idOffer);
             });
-            $('.btn-print-pdf-list').on('click', function () {
-                var idOffer = $(this).data('id-offer');
-                self.printPdfList(idOffer, this);
-            });
-        },
-
-        printPdfList: function (idOffer, btn) {
-            var self = this;
-            var $btn = $(btn);
-            var originalHtml = $btn.html();
-            $btn.prop('disabled', true).html('<i class="material-icons fa-spin">autorenew</i>');
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', self.ajaxUrl, true);
-            xhr.responseType = 'blob';
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    var disposition = xhr.getResponseHeader('Content-Disposition') || '';
-                    var matches = disposition.match(/filename="?([^"]+)"?/);
-                    var filename = matches ? matches[1] : 'offer.pdf';
-
-                    var blob = xhr.response;
-                    var url = window.URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                    $btn.prop('disabled', false).html(originalHtml);
-                } else {
-                    self.notify('error', 'Failed to generate PDF.');
-                    $btn.prop('disabled', false).html(originalHtml);
-                }
-            };
-
-            xhr.onerror = function () {
-                self.notify('error', 'Failed to generate PDF.');
-                $btn.prop('disabled', false).html(originalHtml);
-            };
-
-            xhr.send('action=print-pdf&id_offer=' + idOffer);
         },
 
         duplicateOffer: function (idOffer) {

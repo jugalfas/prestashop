@@ -33,6 +33,10 @@ class OfferService
      */
     public function createDraft($data)
     {
+
+        $expireDays = isset($data['expire_days']) ? (int) $data['expire_days'] : $this->defaultValidityDays;
+        $expireDate = date('Y-m-d', strtotime('+' . $expireDays . ' days'));
+
         $offer = new Offer();
         $offer->reference = Offer::generateReference();
         $offer->title = isset($data['title']) ? $data['title'] : '';
@@ -42,6 +46,7 @@ class OfferService
         $offer->customer_note = isset($data['customer_note']) ? $data['customer_note'] : '';
         $offer->status = Offer::STATUS_DRAFT;
         $offer->total_products = 0;
+        $offer->expire_date = $expireDate;
         $offer->date_add = date('Y-m-d H:i:s');
         $offer->date_upd = date('Y-m-d H:i:s');
         $offer->save();
@@ -61,13 +66,14 @@ class OfferService
      * @param int $id_customer
      * @return array [success => bool, error => string|null]
      */
-    public function submitOffer($id_offer, $id_customer)
+    public function submitOffer($id_offer, $id_customer, $title = '', $customer_note = '')
     {
         $offer = new Offer($id_offer);
         if (!Validate::isLoadedObject($offer)) {
             return ['success' => false, 'error' => 'Offer not found.'];
         }
 
+        
         if (!$offer->belongsTo($id_customer, $this->getGuestEmail())) {
             return ['success' => false, 'error' => 'You do not own this offer.'];
         }
@@ -76,6 +82,16 @@ class OfferService
         if (!$products) {
             return ['success' => false, 'error' => 'Cannot submit an empty quotation.'];
         }
+
+
+        // Save the quote title and customer note before transitioning to submitted
+        if ($title !== '') {
+            $offer->title = $title;
+        }
+        if ($customer_note !== '') {
+            $offer->customer_note = $customer_note;
+        }
+        
 
         $offer->status = Offer::STATUS_SUBMITTED;
         $offer->date_upd = date('Y-m-d H:i:s');
@@ -109,11 +125,17 @@ class OfferService
      * @param string $customer_note
      * @return array [success, id_offer_product, error]
      */
-    public function addProduct($id_offer, $id_product, $id_product_attribute, $configuration_json, $quantity, $customer_note)
+    public function addProduct($id_offer, $id_product, $id_product_attribute, $configuration_json, $quantity, $customer_note, $product_type = 'normal')
     {
         $offer = new Offer($id_offer);
         if (!Validate::isLoadedObject($offer)) {
             return ['success' => false, 'id_offer_product' => null, 'error' => 'Offer not found.'];
+        }
+
+        // Security: validate offer ownership
+        $id_customer = Context::getContext()->customer->isLogged() ? (int) Context::getContext()->customer->id : 0;
+        if (!$offer->belongsTo($id_customer, $this->getGuestEmail())) {
+            return ['success' => false, 'id_offer_product' => null, 'error' => 'You do not own this offer.'];
         }
 
         $product = new Product($id_product, false, Context::getContext()->language->id);
@@ -125,6 +147,24 @@ class OfferService
             return ['success' => false, 'id_offer_product' => null, 'error' => 'Product is not active.'];
         }
 
+        // Auto-detect quantity from configuration (reuse PPC variable metadata)
+        $detectedQty = $this->detectQuantityFromConfig($configuration_json, $id_product);
+        if ($detectedQty > 0) {
+            $quantity = $detectedQty;
+        }
+
+        // Calculate estimated price and weight using PPC's own method
+        $estimatedPrice = null;
+        $estimatedWeight = null;
+        $params = $this->buildParamsFromConfig(json_decode($configuration_json, true) ?: [], $id_product, $quantity);
+        if (method_exists($this->module, 'getCalculatedProductPriceWeight')) {
+            $calc = $this->module->getCalculatedProductPriceWeight($params);
+            if (is_array($calc)) {
+                $estimatedPrice = isset($calc['price']) ? (float) $calc['price'] : null;
+                $estimatedWeight = isset($calc['weight']) ? (float) $calc['weight'] : null;
+            }
+        }
+
         $op = new OfferProduct();
         $op->id_offer = (int) $id_offer;
         $op->id_product = (int) $id_product;
@@ -132,6 +172,9 @@ class OfferService
         $op->configuration_json = $configuration_json;
         $op->quantity = max(1, (int) $quantity);
         $op->customer_note = $customer_note;
+        $op->estimated_price = $estimatedPrice;
+        $op->weight = $estimatedWeight;
+        $op->production_time = '1 Week';
         $op->product_status = OfferProduct::STATUS_WAITING_FOR_PRICE;
         $op->id_currency = (int) Context::getContext()->currency->id;
         $op->date_add = date('Y-m-d H:i:s');
@@ -145,7 +188,50 @@ class OfferService
             'description' => 'Product "' . $product->name . '" added to quotation.',
         ]);
 
-        return ['success' => true, 'id_offer_product' => $op->id, 'error' => null];
+        // Build the response with product details for the quote cart UI
+        $image_url = $this->getProductImageUrl($id_product);
+        $config_summary = ConfigurationSummaryRenderer::renderHtml($configuration_json);
+
+        return [
+            'success' => true,
+            'id_offer_product' => $op->id,
+            'error' => null,
+            'product' => [
+                'id_offer_product' => $op->id,
+                'id_product' => (int) $id_product,
+                'product_name' => $product->name,
+                'product_reference' => $product->reference,
+                'image' => $image_url,
+                'configuration_summary' => $config_summary,
+                'quantity' => max(1, (int) $quantity),
+                'customer_note' => $customer_note,
+                'attachment_count' => 0,
+                'estimated_price' => $estimatedPrice,
+                'weight' => $estimatedWeight,
+                'product_type' => $op->product_type,
+            ],
+        ];
+    }
+
+    /**
+     * Get product image URL (cover image).
+     *
+     * @param int $id_product
+     * @return string
+     */
+    private function getProductImageUrl($id_product)
+    {
+        $id_image = Db::getInstance()->getValue(
+            'SELECT id_image FROM ' . _DB_PREFIX_ . 'image WHERE id_product = ' . (int) $id_product . ' AND cover = 1'
+        );
+
+        if ($id_image) {
+            $link = Context::getContext()->link;
+            $image_type = ImageType::getFormatedName('home');
+            return $link->getImageLink($id_product . '-' . (int) $id_image, (int) $id_image, $image_type);
+        }
+
+        return '';
     }
 
     /**
@@ -160,6 +246,16 @@ class OfferService
         $op = new OfferProduct($id_offer_product);
         if (!Validate::isLoadedObject($op) || (int) $op->id_offer !== (int) $id_offer) {
             return ['success' => false, 'error' => 'Offer product not found.'];
+        }
+
+        // Security: validate offer ownership
+        $offer = new Offer($id_offer);
+        if (!Validate::isLoadedObject($offer)) {
+            return ['success' => false, 'error' => 'Offer not found.'];
+        }
+        $id_customer = Context::getContext()->customer->isLogged() ? (int) Context::getContext()->customer->id : 0;
+        if (!$offer->belongsTo($id_customer, $this->getGuestEmail())) {
+            return ['success' => false, 'error' => 'You do not own this offer.'];
         }
 
         OfferAttachment::deleteByOfferProduct($id_offer_product);
@@ -241,6 +337,7 @@ class OfferService
 
         OfferProduct::updateOffer($id_offer_product, [
             'offered_price' => isset($data['offered_price']) ? (float) $data['offered_price'] : null,
+            'estimated_price' => isset($data['estimated_price']) ? (float) $data['estimated_price'] : null,
             'discounted_amount' => isset($data['discounted_amount']) ? (float) $data['discounted_amount'] : 0,
             'weight' => isset($data['weight']) ? (float) $data['weight'] : null,
             'production_time' => isset($data['production_time']) ? $data['production_time'] : null,
@@ -488,19 +585,26 @@ class OfferService
     /**
      * Duplicate an offer into a new draft.
      *
-     * @param int $id_offer
-     * @param int $id_customer
+     * @param int  $id_offer
+     * @param int  $id_customer   Pass 0 for admin-initiated duplication
+     * @param bool $is_admin      True when called from admin context (resets history, recalculates expiry)
      * @return array [success, id_new_offer, error]
      */
-    public function duplicateOffer($id_offer, $id_customer)
+    public function duplicateOffer($id_offer, $id_customer, $is_admin = false)
     {
         $offer = new Offer($id_offer);
         if (!Validate::isLoadedObject($offer)) {
             return ['success' => false, 'id_new_offer' => null, 'error' => 'Offer not found.'];
         }
 
-        if (!$offer->belongsTo($id_customer, $this->getGuestEmail())) {
+        if (!$is_admin && !$offer->belongsTo($id_customer, $this->getGuestEmail())) {
             return ['success' => false, 'id_new_offer' => null, 'error' => 'You do not own this offer.'];
+        }
+
+        $validityDays = (int) Configuration::get('PPC_OFFER_VALIDITY_DAYS', 15);
+        $expireDate = null;
+        if ($validityDays > 0) {
+            $expireDate = date('Y-m-d H:i:s', strtotime('+' . $validityDays . ' days'));
         }
 
         $newOffer = new Offer();
@@ -512,6 +616,7 @@ class OfferService
         $newOffer->customer_note = $offer->customer_note;
         $newOffer->status = Offer::STATUS_DRAFT;
         $newOffer->total_products = 0;
+        $newOffer->expire_date = $expireDate;
         $newOffer->date_add = date('Y-m-d H:i:s');
         $newOffer->date_upd = date('Y-m-d H:i:s');
         $newOffer->save();
@@ -526,6 +631,7 @@ class OfferService
             $op->quantity = (int) $p['quantity'];
             $op->customer_note = $p['customer_note'];
             $op->product_status = OfferProduct::STATUS_WAITING_FOR_PRICE;
+            $op->product_type = isset($p['product_type']) ? $p['product_type'] : 'normal';
             $op->id_currency = (int) $p['id_currency'];
             $op->date_add = date('Y-m-d H:i:s');
             $op->date_upd = date('Y-m-d H:i:s');
@@ -557,6 +663,12 @@ class OfferService
         }
 
         Offer::recalculateTotals($newOffer->id);
+
+        // For admin-initiated duplication: reset history (only log the duplication itself)
+        // For customer duplication: also log normally
+        if ($is_admin) {
+            OfferHistory::deleteByOffer($newOffer->id);
+        }
 
         OfferHistoryLogger::log($newOffer->id, OfferHistory::ACTION_OFFER_DUPLICATED, [
             'id_customer' => $id_customer,
@@ -649,8 +761,16 @@ class OfferService
             return ['success' => false, 'id_order' => null, 'error' => 'Delivery and invoice addresses are required.'];
         }
 
+         // Load customer
+        $customer = new Customer((int)$offer->id_customer);
+        if (!Validate::isLoadedObject($customer)) {
+            return ['success' => false, 'id_order' => null, 'error' => 'Guest customers must be converted to registered customers first.'];
+        }
+
+
         $cart = new Cart();
         $cart->id_customer = (int) $offer->id_customer;
+        $cart->secure_key = $customer->secure_key;
         $cart->id_address_delivery = $id_address_delivery;
         $cart->id_address_invoice = $id_address_invoice;
         $cart->id_currency = (int) Context::getContext()->currency->id;
@@ -658,7 +778,7 @@ class OfferService
         $cart->id_carrier = $id_carrier;
         $cart->recyclable = 0;
         $cart->gift = 0;
-        $cart->add();
+        $cart->save();
 
         foreach ($accepted as $p) {
             $config = json_decode($p['configuration_json'], true);
@@ -667,6 +787,11 @@ class OfferService
             }
 
             $params = $this->buildParamsFromConfig($config, $p['id_product'], $p['quantity']);
+            $params['id_cart'] = (int) $cart->id;
+            $params['id_customer'] = (int) $offer->id_customer;
+            $params['offered_price'] = isset($p['offered_price']) ? (float) $p['offered_price'] : null;
+            $params['discounted_amount'] = isset($p['discounted_amount']) ? (float) $p['discounted_amount'] : 0;
+            $params['weight'] = isset($p['weight']) ? (float) $p['weight'] : null;
             $result = $this->module->processAddToCart($params);
             if (isset($result['error']) && $result['error']) {
                 continue;
@@ -677,9 +802,35 @@ class OfferService
 
         $cart->update();
 
+
+        // Debug: Check cart validity
+        if (!Validate::isLoadedObject($cart)) {
+            throw new Exception("Cart is not valid after creation.");
+        }
+        // Debug: Check cart products
+        $cart_products = $cart->getProducts();
+        if (empty($cart_products)) {
+            throw new Exception("Cart has no products. Cart ID: " . $cart->id);
+        }
+        // Debug: Check address validity
+        $address = new Address($cart->id_address_delivery);
+        if (!Validate::isLoadedObject($address) || $address->deleted) {
+            throw new Exception("Delivery address is invalid, deleted, or inactive. Address ID: " . $cart->id_address_delivery);
+        }
+        // Debug: Check currency
+        $currency = new Currency($cart->id_currency);
+        if (!Validate::isLoadedObject($currency)) {
+            throw new Exception("Currency is not valid. Currency ID: " . $cart->id_currency);
+        }
+        // Debug: Check customer secure key
+        if (empty($customer->secure_key)) {
+            throw new Exception("Customer secure key is missing.");
+        }
+
+
         $paymentModuleObj = Module::getInstanceByName($paymentModule);
         if (!Validate::isLoadedObject($paymentModuleObj)) {
-            $paymentModuleObj = Module::getInstanceByName('cheque');
+            $paymentModuleObj = Module::getInstanceByName('ps_wirepayment');
         }
 
         $paymentModuleObj->validateOrder(
@@ -831,6 +982,11 @@ class OfferService
         foreach ($products as &$p) {
             $p['attachments'] = OfferAttachment::getByOfferProduct($p['id_offer_product']);
             $p['configuration_summary'] = $this->buildConfigSummary($p['configuration_json']);
+            $p['configuration_html'] = ConfigurationSummaryRenderer::renderHtml($p['configuration_json']);
+            $p['estimated_price_formatted'] = self::formatPrice($p['estimated_price']);
+            $p['offered_price_formatted'] = self::formatPrice($p['offered_price']);
+            $p['weight_formatted'] = !empty($p['weight']) ? number_format((float) $p['weight'], 2) . ' kg' : '-';
+            $p['production_time_days'] = self::parseProductionTimeDays($p['production_time']);
         }
 
         $history = OfferHistory::getByOffer($id_offer);
@@ -843,6 +999,47 @@ class OfferService
     }
 
     /**
+     * Format a price for display. Returns '--' when value is empty or zero,
+     * so we never render "0" / "0,00 €" for an un-priced offer.
+     *
+     * @param mixed $price
+     * @return string
+     */
+    public static function formatPrice($price)
+    {
+        if ($price === null || $price === '' || (float) $price <= 0) {
+            return '--';
+        }
+
+        return Tools::displayPrice((float) $price);
+    }
+
+    /**
+     * Parse production_time string to number of days.
+     * "1 Week" -> 7, "3 Days" -> 3, "2 Weeks" -> 14.
+     *
+     * @param string|null $productionTime
+     * @return int
+     */
+    public static function parseProductionTimeDays($productionTime)
+    {
+        if (!$productionTime) {
+            return 0;
+        }
+        $lower = strtolower($productionTime);
+        if (preg_match('/(\d+)\s*week/', $lower, $m)) {
+            return (int) $m[1] * 7;
+        }
+        if (preg_match('/(\d+)\s*day/', $lower, $m)) {
+            return (int) $m[1];
+        }
+        if (preg_match('/(\d+)/', $lower, $m)) {
+            return (int) $m[1];
+        }
+        return 0;
+    }
+
+    /**
      * Build a human-readable summary from configuration JSON.
      *
      * @param string $json
@@ -850,20 +1047,55 @@ class OfferService
      */
     private function buildConfigSummary($json)
     {
-        $config = json_decode($json, true);
+        return ConfigurationSummaryRenderer::renderText($json);
+    }
+
+    /**
+     * Auto-detect the quantity variable from the configuration.
+     * Uses formula_name (oplage/paginas), variable name, or variable type=1.
+     *
+     * @param string $configuration_json
+     * @param int $id_product
+     * @return int  detected quantity, or 0 if not found
+     */
+    private function detectQuantityFromConfig($configuration_json, $id_product)
+    {
+        $config = json_decode($configuration_json, true);
         if (!$config || !is_array($config)) {
-            return '';
+            return 0;
         }
 
-        $parts = [];
+        $id_lang = (int) Context::getContext()->language->id;
+
         foreach ($config as $key => $value) {
-            if (is_array($value)) {
-                $value = implode(', ', $value);
+            if (strpos($key, 'variable_') !== 0) {
+                continue;
             }
-            $parts[] = $key . ': ' . $value;
+            $id_pv = (int) substr($key, strlen('variable_'));
+            if (!$id_pv) {
+                continue;
+            }
+
+            $row = Db::getInstance()->getRow('
+                SELECT pv.formula_name, v.type, pvl.name
+                FROM ' . _DB_PREFIX_ . 'product_variable pv
+                LEFT JOIN ' . _DB_PREFIX_ . 'variable v ON v.id_variable = pv.id_variable
+                LEFT JOIN ' . _DB_PREFIX_ . 'product_variable_lang pvl
+                    ON pvl.id_product_variable = pv.id_product_variable AND pvl.id_lang = ' . (int) $id_lang . '
+                WHERE pv.id_product_variable = ' . (int) $id_pv
+            );
+
+            if (!$row) {
+                continue;
+            }
+
+            // Only match the dedicated Quantity variable type (type='1')
+            if ($row['type'] === '1' || $row['type'] === 1) {
+                return max(1, (int) $value);
+            }
         }
 
-        return implode(' | ', $parts);
+        return 0;
     }
 
     /**
@@ -875,12 +1107,22 @@ class OfferService
      * @param int $quantity
      * @return array
      */
-    private function buildParamsFromConfig($config, $id_product, $quantity)
+    public function buildParamsFromConfig($config, $id_product, $quantity)
     {
         $params = [
             'id_product' => (int) $id_product,
+            'id_product_attribute' => 0,
             'qty' => (int) $quantity,
         ];
+
+        // PPC's getCalculatedProductPriceWeight requires id_product_setting.
+        // Load it the same way the module does during normal price calculation.
+        if (Validate::isLoadedObject(new Product($id_product))) {
+            $settingRow = KDProductSetting::getByProductId($id_product);
+            if ($settingRow && !empty($settingRow['id_product_setting'])) {
+                $params['id_product_setting'] = (int) $settingRow['id_product_setting'];
+            }
+        }
 
         foreach ($config as $key => $value) {
             if (strpos($key, 'variable_') === 0) {
@@ -900,10 +1142,42 @@ class OfferService
      */
     private function getGuestEmail()
     {
-        if ($this->context->customer->isLogged()) {
+        if (Context::getContext()->customer->isLogged()) {
             return '';
         }
 
         return Context::getContext()->cookie->pc_guest_email ?? '';
+    }
+
+    /**
+     * Associate a guest offer with a customer account after login/registration.
+     * Transfers ownership from guest_email to id_customer.
+     *
+     * @param int $id_offer
+     * @param int $id_customer
+     * @return bool
+     */
+    public function associateGuestOffer($id_offer, $id_customer)
+    {
+        $offer = new Offer($id_offer);
+        if (!Validate::isLoadedObject($offer)) {
+            return false;
+        }
+
+        if ($offer->id_customer && $offer->id_customer != $id_customer) {
+            return false;
+        }
+
+        $offer->id_customer = (int) $id_customer;
+        $offer->guest_email = '';
+        $offer->guest_name = '';
+        $offer->date_upd = date('Y-m-d H:i:s');
+        $offer->save();
+
+        OfferHistoryLogger::log($id_offer, OfferHistory::ACTION_STATUS_CHANGED, [
+            'description' => 'Offer associated with customer account after login.',
+        ]);
+
+        return true;
     }
 }

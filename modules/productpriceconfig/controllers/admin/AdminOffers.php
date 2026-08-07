@@ -18,6 +18,7 @@ require_once dirname(__FILE__) . '/../../offer/classes/OfferHistory.php';
 require_once dirname(__FILE__) . '/../../offer/classes/OfferAttachment.php';
 require_once dirname(__FILE__) . '/../../offer/services/OfferService.php';
 require_once dirname(__FILE__) . '/../../offer/services/OfferPdfGenerator.php';
+require_once dirname(__FILE__) . '/../../offer/services/ConfigurationSummaryRenderer.php';
 
 class AdminOffersController extends ModuleAdminController
 {
@@ -59,8 +60,23 @@ class AdminOffersController extends ModuleAdminController
 
         if ($action === 'pdf') {
             $id_offer = (int) Tools::getValue('id_offer');
-            OfferPdfGenerator::generate($id_offer, 'D');
-            return;
+            
+            $pdfContent = OfferPdfGenerator::generate($id_offer);
+            if ($pdfContent) {
+                $offer = Offer::getOffer($id_offer);
+                $filename = 'Offer_' . ($offer['reference'] ?? $id_offer) . '.pdf';
+                while (ob_get_level() > 0) {
+                    ob_end_clean();
+                }
+                header('Content-Type: application/pdf');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Content-Length: ' . strlen($pdfContent));
+                header('Cache-Control: private, no-cache, no-store, must-revalidate');
+                header('Pragma: no-cache');
+                header('Expires: 0');
+                echo $pdfContent;
+            }
+            exit;
         }
 
         $id_offer = (int) Tools::getValue('id_offer');
@@ -189,11 +205,27 @@ class AdminOffersController extends ModuleAdminController
         ]);
 
         // Format products
+        $id_lang = (int) $this->context->language->id;
         $formattedProducts = [];
         foreach ($detail['products'] as $p) {
             $image = '';
             if (!empty($p['image_id'])) {
                 $image = $this->context->link->getImageLink($p['link_rewrite'], $p['image_id'], 'home_default');
+            }
+
+            // Render configuration summary as rich HTML (no raw JSON in the UI)
+            $configHtml = ConfigurationSummaryRenderer::renderHtml($p['configuration_json'], $id_lang);
+
+            // Format attachments with file size
+            $formattedAttachments = [];
+            if (!empty($p['attachments'])) {
+                foreach ($p['attachments'] as $att) {
+                    $formattedAttachments[] = [
+                        'id_attachment' => (int) $att['id_offer_attachment'],
+                        'original_name' => $att['original_name'] ?: $att['saved_name'],
+                        'formatted_size' => self::formatFileSize((int) ($att['size'] ?? 0)),
+                    ];
+                }
             }
 
             $formattedProducts[] = [
@@ -205,15 +237,19 @@ class AdminOffersController extends ModuleAdminController
                 'image' => $image,
                 'configuration_json' => $p['configuration_json'],
                 'configuration_summary' => $p['configuration_summary'],
+                'configuration_summary_html' => $configHtml,
                 'offered_price' => $p['offered_price'],
+                'estimated_price' => isset($p['estimated_price']) ? $p['estimated_price'] : null,
                 'discounted_amount' => $p['discounted_amount'],
                 'weight' => $p['weight'],
                 'production_time' => $p['production_time'],
+                'production_days' => OfferService::parseProductionTimeDays($p['production_time']),
                 'product_status' => $p['product_status'],
+                'product_type' => isset($p['product_type']) ? $p['product_type'] : 'normal',
                 'product_status_label' => ucfirst(str_replace('_', ' ', $p['product_status'])),
                 'admin_note' => $p['admin_note'],
                 'customer_note' => $p['customer_note'],
-                'attachments' => $p['attachments'],
+                'attachments' => $formattedAttachments,
             ];
         }
 
@@ -251,7 +287,7 @@ class AdminOffersController extends ModuleAdminController
                     'admin_url' => $this->context->link->getAdminLink('AdminCustomers') . '&id_customer=' . (int) $customer->id . '&viewcustomer',
                 ];
 
-                $addresses = Address::getAddressesByCustomerId($customer->id);
+                $addresses = $customer->getAddresses($this->context->language->id);
                 $customerInfo['addresses'] = $addresses;
             }
         }
@@ -259,7 +295,7 @@ class AdminOffersController extends ModuleAdminController
         // Get carriers and payment modules for order conversion
         $carriers = Carrier::getCarriers($this->context->language->id, false, false, false, null, Carrier::ALL_CARRIERS);
         $paymentModules = [];
-        $modules = Module::getPaymentModulesList();
+        $modules = Module::getPaymentModules();
         foreach ($modules as $mod) {
             $paymentModules[] = ['id' => $mod['name'], 'name' => $mod['display_name'] ?: $mod['name']];
         }
@@ -298,9 +334,14 @@ class AdminOffersController extends ModuleAdminController
      */
     private function handleAjax()
     {
-        header('Content-Type: application/json');
-
         $subAction = Tools::getValue('sub_action');
+
+        // PDF and attachment downloads need binary headers, not JSON
+        $isBinaryOutput = in_array($subAction, ['print-pdf', 'download-attachment']);
+
+        if (!$isBinaryOutput) {
+            header('Content-Type: application/json');
+        }
 
         switch ($subAction) {
             case 'offer-price':
@@ -339,6 +380,26 @@ class AdminOffersController extends ModuleAdminController
                 $this->ajaxRemoveAttachment();
                 break;
 
+            case 'print-pdf':
+                $this->ajaxPrintPdf();
+                break;
+
+            case 'download-attachment':
+                $this->ajaxDownloadAttachment();
+                break;
+
+            case 'recalculate-price':
+                $this->ajaxRecalculatePrice();
+                break;
+
+            case 'apply-recalc':
+                $this->ajaxApplyRecalc();
+                break;
+
+            case 'duplicate-offer':
+                $this->ajaxDuplicateOffer();
+                break;
+
             default:
                 die(json_encode(['success' => false, 'error' => 'Unknown sub-action.']));
         }
@@ -352,6 +413,7 @@ class AdminOffersController extends ModuleAdminController
 
         $data = [
             'offered_price' => (float) Tools::getValue('offered_price', 0),
+            'estimated_price' => (float) Tools::getValue('estimated_price', 0),
             'discounted_amount' => (float) Tools::getValue('discounted_amount', 0),
             'weight' => (float) Tools::getValue('weight', 0),
             'production_time' => Tools::getValue('production_time', ''),
@@ -443,8 +505,214 @@ class AdminOffersController extends ModuleAdminController
         die(json_encode($result));
     }
 
+    private function ajaxPrintPdf()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        if (!$id_offer) {
+            die(json_encode(['success' => false, 'error' => 'Offer ID required.']));
+        }
+
+        $pdfContent = OfferPdfGenerator::generate($id_offer);
+        if (!$pdfContent) {
+            die(json_encode(['success' => false, 'error' => 'Failed to generate PDF']));
+        }
+
+        $offer = Offer::getOffer($id_offer);
+        $filename = 'Offer_' . ($offer['reference'] ?? $id_offer) . '.pdf';
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($pdfContent));
+        header('Cache-Control: private, no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        echo $pdfContent;
+        exit;
+    }
+
     public function displayAjax()
     {
         // Handled in handleAjax()
+    }
+
+    /**
+     * Download an attachment file — reuses the same OfferAttachment
+     * download logic as the front office. Validates file existence and
+     * streams the binary with appropriate headers.
+     */
+    private function ajaxDownloadAttachment()
+    {
+        $id_attachment = (int) Tools::getValue('id_attachment');
+        if (!$id_attachment) {
+            die(json_encode(['success' => false, 'error' => 'Attachment ID required.']));
+        }
+
+        $attachment = OfferAttachment::getById($id_attachment);
+        if (!$attachment) {
+            die(json_encode(['success' => false, 'error' => 'Attachment not found.']));
+        }
+
+        $uploadDir = _PS_UPLOAD_DIR_ . 'offer_attachments/';
+        $filePath = $uploadDir . $attachment['saved_name'];
+
+        if (!file_exists($filePath)) {
+            die(json_encode(['success' => false, 'error' => 'File not found on disk.']));
+        }
+
+        $originalName = $attachment['original_name'] ?: $attachment['saved_name'];
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $originalName . '"');
+        header('Content-Length: ' . filesize($filePath));
+        header('Cache-Control: private, no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        readfile($filePath);
+        exit;
+    }
+
+    /**
+     * Recalculate the estimated price and weight for an offer product
+     * using the SAME ProductPriceConfig calculation as the front office.
+     * Returns the live values so the admin can review and apply them.
+     */
+    private function ajaxRecalculatePrice()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        $id_offer_product = (int) Tools::getValue('id_offer_product');
+        $id_product = (int) Tools::getValue('id_product');
+
+        if (!$id_offer_product || !$id_product) {
+            die(json_encode(['success' => false, 'error' => 'Missing product or offer product ID.']));
+        }
+
+        $op = OfferProduct::getOfferProduct($id_offer_product);
+        if (!$op) {
+            die(json_encode(['success' => false, 'error' => 'Offer product not found.']));
+        }
+
+        $config = json_decode($op['configuration_json'], true) ?: [];
+        $quantity = (int) $op['quantity'];
+
+        // Reuse the exact same calculation path as the front office
+        $service = new OfferService($this->module);
+        $params = $service->buildParamsFromConfig($config, $id_product, $quantity);
+
+        $estimatedPrice = null;
+        $estimatedWeight = null;
+
+        if (method_exists($this->module, 'getCalculatedProductPriceWeight')) {
+            $calc = $this->module->getCalculatedProductPriceWeight($params);
+            if (is_array($calc)) {
+                $estimatedPrice = isset($calc['price']) ? (float) $calc['price'] : null;
+                $estimatedWeight = isset($calc['weight']) ? (float) $calc['weight'] : null;
+            }
+        }
+
+        die(json_encode([
+            'success' => true,
+            'estimated_price' => $estimatedPrice,
+            'estimated_weight' => $estimatedWeight,
+            'estimated_price_formatted' => $estimatedPrice !== null ? Tools::displayPrice($estimatedPrice) : '-',
+            'estimated_weight_formatted' => $estimatedWeight !== null ? $estimatedWeight . ' kg' : '-',
+        ]));
+    }
+
+    /**
+     * Apply the recalculated price and weight as the new estimated
+     * values for the offer product. Updates the database record.
+     */
+    private function ajaxApplyRecalc()
+    {
+        $id_offer_product = (int) Tools::getValue('id_offer_product');
+        $price = Tools::getValue('price');
+        $weight = Tools::getValue('weight');
+
+        if (!$id_offer_product) {
+            die(json_encode(['success' => false, 'error' => 'Missing offer product ID.']));
+        }
+
+        $op = new OfferProduct($id_offer_product);
+        if (!Validate::isLoadedObject($op)) {
+            die(json_encode(['success' => false, 'error' => 'Offer product not found.']));
+        }
+
+        if ($price !== '' && $price !== null) {
+            $op->estimated_price = (float) $price;
+        }
+        if ($weight !== '' && $weight !== null) {
+            $op->weight = (float) $weight;
+        }
+        $op->date_upd = date('Y-m-d H:i:s');
+        $op->save();
+
+        Offer::recalculateTotals((int) $op->id_offer);
+
+        die(json_encode([
+            'success' => true,
+            'estimated_price_formatted' => Tools::displayPrice((float) $price),
+            'estimated_weight_formatted' => (float) $weight . ' kg',
+        ]));
+    }
+
+    /**
+     * Format a file size in bytes to a human-readable string.
+     *
+     * @param int $bytes
+     * @return string
+     */
+    private static function formatFileSize($bytes)
+    {
+        if (!$bytes) {
+            return '0 B';
+        }
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+        if ($bytes < 1048576) {
+            return round($bytes / 1024, 1) . ' KB';
+        }
+        return round($bytes / 1048576, 1) . ' MB';
+    }
+
+    /**
+     * Duplicate an offer (admin action).
+     * Resets offer history, generates a new reference, and recalculates expiry.
+     */
+    private function ajaxDuplicateOffer()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        if (!$id_offer) {
+            die(json_encode(['success' => false, 'error' => 'Missing offer ID.']));
+        }
+
+        $offer = new Offer($id_offer);
+        if (!Validate::isLoadedObject($offer)) {
+            die(json_encode(['success' => false, 'error' => 'Offer not found.']));
+        }
+
+        $service = new OfferService($this->module);
+        $result = $service->duplicateOffer($id_offer, 0, true);
+
+        if (!$result['success']) {
+            die(json_encode($result));
+        }
+
+        $id_new_offer = (int) $result['id_new_offer'];
+        $redirect_url = $this->context->link->getAdminLink('AdminOffers') . '&action=detail&id_offer=' . $id_new_offer;
+
+        die(json_encode([
+            'success' => true,
+            'id_new_offer' => $id_new_offer,
+            'redirect_url' => $redirect_url,
+        ]));
     }
 }

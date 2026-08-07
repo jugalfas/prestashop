@@ -114,7 +114,7 @@ class OfferEmailNotifier
             '{offer_status}' => ucfirst(str_replace('_', ' ', $offer->status)),
             '{offer_expiry}' => $offer->expire_date ?: 'N/A',
             '{product_list}' => implode("\n", $productList) ?: 'No products',
-            '{total_price}' => Tools::displayPrice($totalPrice),
+            '{total_price}' => OfferService::formatPrice($totalPrice),
             '{offer_link}' => $offerLink,
             '{shop_name}' => Configuration::get('PS_SHOP_NAME'),
             '{shop_url}' => Context::getContext()->shop->getBaseURL(true),

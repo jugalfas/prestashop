@@ -98,6 +98,20 @@ class OfferAttachment extends ObjectModel
     }
 
     /**
+     * Get a single attachment by ID.
+     *
+     * @param int $id_offer_attachment
+     * @return array|false
+     */
+    public static function getById($id_offer_attachment)
+    {
+        return Db::getInstance()->getRow(
+            'SELECT * FROM ' . _DB_PREFIX_ . 'offer_attachment
+             WHERE id_offer_attachment = ' . (int) $id_offer_attachment
+        );
+    }
+
+    /**
      * Delete an attachment record and its file on disk.
      *
      * @param int $id_offer_attachment

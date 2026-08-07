@@ -97,6 +97,22 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
                 $this->actionValidateConfiguration();
                 break;
 
+            case 'get-offer-product':
+                $this->actionGetOfferProduct();
+                break;
+
+            case 'print-pdf':
+                $this->actionPrintPdf();
+                break;
+
+            case 'download-attachment':
+                $this->actionDownloadAttachment();
+                break;
+
+            case 'cancel-offer':
+                $this->actionCancelOffer();
+                break;
+
             default:
                 $this->jsonResponse(['success' => false, 'error' => 'Unknown action.'], 400);
         }
@@ -132,6 +148,7 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
                     (SELECT id_image FROM ' . _DB_PREFIX_ . 'image i WHERE i.id_product = p.id_product AND i.cover = 1 LIMIT 1) AS id_image
                 FROM ' . _DB_PREFIX_ . 'product p
                 INNER JOIN ' . _DB_PREFIX_ . 'product_lang pl ON pl.id_product = p.id_product AND pl.id_lang = ' . $id_lang . '
+                INNER JOIN ' . _DB_PREFIX_ . 'product_setting ps ON ps.id_product = p.id_product
                 LEFT JOIN ' . _DB_PREFIX_ . 'category_product cp ON cp.id_product = p.id_product AND cp.id_category != ' . (int) Configuration::get('PS_HOME_CATEGORY') . '
                 LEFT JOIN ' . _DB_PREFIX_ . 'category_lang cl ON cl.id_category = cp.id_category AND cl.id_lang = ' . $id_lang . '
                 WHERE p.active = 1
@@ -160,6 +177,7 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
                     (SELECT id_image FROM ' . _DB_PREFIX_ . 'image i WHERE i.id_product = p.id_product AND i.cover = 1 LIMIT 1) AS id_image
                 FROM ' . _DB_PREFIX_ . 'product p
                 INNER JOIN ' . _DB_PREFIX_ . 'product_lang pl ON pl.id_product = p.id_product AND pl.id_lang = ' . $id_lang . '
+                INNER JOIN ' . _DB_PREFIX_ . 'product_setting ps ON ps.id_product = p.id_product
                 LEFT JOIN ' . _DB_PREFIX_ . 'category_product cp ON cp.id_product = p.id_product
                 LEFT JOIN ' . _DB_PREFIX_ . 'category_lang cl ON cl.id_category = cp.id_category AND cl.id_lang = ' . $id_lang . '
                 WHERE p.active = 1
@@ -202,7 +220,11 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
     }
 
     /**
-     * Load the product configurator HTML via the existing module hook.
+     * Load the product configurator HTML using the dedicated Offer template.
+     *
+     * Reuses the existing ProductPriceConfig data-loading logic (variables,
+     * options, rules, banned combinations, tooltips, tiered pricing) but
+     * renders product_config.tpl instead of the Product Detail hook template.
      */
     private function actionGetConfigurator()
     {
@@ -217,8 +239,8 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
         }
 
         // Reuse the existing module rendering by calling the hook logic directly
-        $html = $this->module->hookDisplayReassurance(['id_product' => $id_product]);
-
+        $html = $this->module->renderOfferConfigurator($id_product);
+        //$html = '';
         if (!$html) {
             $html = $this->module->hookdisplayQuoteRequest(['id_product' => $id_product]);
         }
@@ -262,13 +284,14 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
         $configuration_json = Tools::getValue('configuration_json', '{}');
         $quantity = max(1, (int) Tools::getValue('quantity', 1));
         $customer_note = Tools::getValue('customer_note', '');
+        $product_type = in_array(Tools::getValue('product_type', 'normal'), ['normal', 'custom']) ? Tools::getValue('product_type', 'normal') : 'normal';
 
         if (!$id_offer || !$id_product) {
             $this->jsonResponse(['success' => false, 'error' => 'Offer ID and Product ID are required.'], 400);
         }
 
-        $result = $this->offerService->addProduct($id_offer, $id_product, $id_product_attribute, $configuration_json, $quantity, $customer_note);
-        $this->jsonResponse($result + ['success' => $result['success']]);
+        $result = $this->offerService->addProduct($id_offer, $id_product, $id_product_attribute, $configuration_json, $quantity, $customer_note, $product_type);
+        $this->jsonResponse($result);
     }
 
     /**
@@ -276,6 +299,7 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
      */
     private function actionRemoveProduct()
     {
+        // Ownership is validated inside OfferService::removeProduct()
         $id_offer = (int) Tools::getValue('id_offer');
         $id_offer_product = (int) Tools::getValue('id_offer_product');
 
@@ -306,8 +330,8 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
         $id_offer_product = (int) Tools::getValue('id_offer_product');
         $uploaded_by = $this->context->customer->isLogged() ? (int) $this->context->customer->id : 0;
 
-        if (!isset($_FILES['file'])) {
-            $this->jsonResponse(['success' => false, 'error' => 'No file uploaded.'], 400);
+        if (!isset($_FILES['file']) || !is_uploaded_file($_FILES['file']['tmp_name'])) {
+            $this->jsonResponse(['success' => false, 'error' => 'No file uploaded or invalid upload.'], 400);
         }
 
         $result = $this->offerService->uploadAttachment($id_offer, $id_offer_product, $_FILES['file'], $uploaded_by);
@@ -348,8 +372,17 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
     {
         $id_offer = (int) Tools::getValue('id_offer');
         $id_customer = $this->context->customer->isLogged() ? (int) $this->context->customer->id : 0;
+        $title = Tools::getValue('title', '');
+        $customer_note = Tools::getValue('customer_note', '');
 
-        $result = $this->offerService->submitOffer($id_offer, $id_customer);
+        $result = $this->offerService->submitOffer($id_offer, $id_customer, $title, $customer_note);
+
+        if ($result['success'] && !$id_customer) {
+            $login_url = $this->context->link->getPageLink('authentication', true);
+            $back_url = urlencode($this->context->link->getModuleLink('productpriceconfig', 'offerlist') . '?associate_offer=' . $id_offer);
+            $result['redirect_url'] = $login_url . '?back=' . $back_url;
+        }
+
         $this->jsonResponse($result);
     }
 
@@ -424,6 +457,8 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
                 $image = $this->context->link->getImageLink($p['link_rewrite'], $p['image_id'], 'small_default');
             }
 
+            $attachments = OfferAttachment::getByOfferProduct($p['id_offer_product']);
+
             $formatted[] = [
                 'id_offer_product' => (int) $p['id_offer_product'],
                 'id_product' => (int) $p['id_product'],
@@ -432,9 +467,15 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
                 'quantity' => (int) $p['quantity'],
                 'image' => $image,
                 'offered_price' => $p['offered_price'],
+                'estimated_price' => $p['estimated_price'] ?? null,
+                'weight' => $p['weight'] ?? null,
+                'production_time' => $p['production_time'] ?? '',
                 'product_status' => $p['product_status'],
+                'product_type' => $p['product_type'] ?? 'normal',
                 'attachment_count' => count($attachments),
-                'configuration_summary' => $this->buildConfigSummary($p['configuration_json']),
+                'attachments' => $attachments,
+                'configuration_summary' => ConfigurationSummaryRenderer::renderHtml($p['configuration_json']),
+                'customer_note' => $p['customer_note'] ?? '',
             ];
         }
 
@@ -442,7 +483,47 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
     }
 
     /**
-     * Validate a configuration via banned combination checker.
+     * Get a single offer product with its configuration for editing.
+     */
+    private function actionGetOfferProduct()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        $id_offer_product = (int) Tools::getValue('id_offer_product');
+        if (!$id_offer || !$id_offer_product) {
+            $this->jsonResponse(['success' => false, 'error' => 'Missing parameters.'], 400);
+        }
+
+        $row = OfferProduct::getOfferProduct($id_offer_product);
+        if (!$row || (int) $row['id_offer'] !== $id_offer) {
+            $this->jsonResponse(['success' => false, 'error' => 'Product not found.'], 404);
+        }
+
+        $image = '';
+        $id_image = Db::getInstance()->getValue(
+            'SELECT id_image FROM ' . _DB_PREFIX_ . 'image WHERE id_product = ' . (int) $row['id_product'] . ' AND cover = 1'
+        );
+        if ($id_image) {
+            $image = $this->context->link->getImageLink($row['link_rewrite'], $id_image, 'small_default');
+        }
+
+        $this->jsonResponse([
+            'success' => true,
+            'product' => [
+                'id_offer_product' => (int) $row['id_offer_product'],
+                'id_product' => (int) $row['id_product'],
+                'product_name' => $row['product_name'],
+                'product_reference' => $row['product_reference'],
+                'image' => $image,
+                'configuration_json' => $row['configuration_json'],
+                'customer_note' => $row['customer_note'] ?? '',
+                'quantity' => (int) $row['quantity'],
+            ],
+        ]);
+    }
+
+    /**
+     * Validate a configuration: required variables, required options, quantity,
+     * and banned combination check. Reuses existing PPC validation methods.
      */
     private function actionValidateConfiguration()
     {
@@ -458,8 +539,75 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
             }
         }
 
-        $result = $this->module->validateBannedCombinations($id_product, $params);
-        $this->jsonResponse(['success' => true, 'validation' => $result]);
+        $errors = [];
+
+        // 1. Required variable/option validation — reuse PPC data loading
+        $id_lang = (int) $this->context->language->id;
+        $variables = Db::getInstance()->executeS('
+            SELECT p.*, pv.*, pvl.*, pl.name, p.maximum AS p_maximum, p.minimum AS p_minimum, p.active
+            FROM ' . _DB_PREFIX_ . 'product_variable p
+            LEFT JOIN ' . _DB_PREFIX_ . 'product_variable_lang pl
+                ON (pl.id_product_variable = p.id_product_variable AND pl.id_lang = ' . $id_lang . ')
+            LEFT JOIN ' . _DB_PREFIX_ . 'variable pv
+                ON (pv.id_variable = p.id_variable)
+            LEFT JOIN ' . _DB_PREFIX_ . 'variable_lang pvl
+                ON (pvl.id_variable = p.id_variable AND pvl.id_lang = ' . $id_lang . ')
+            WHERE p.id_product = ' . (int) $id_product . '
+            ORDER BY p.id_product_variable
+        ');
+
+        if ($variables) {
+            foreach ($variables as $pv) {
+                $var_key = 'variable_' . $pv['id_product_variable'];
+                $value = isset($params[$var_key]) ? trim($params[$var_key]) : '';
+
+                // Check required variables (active and required)
+                if ($pv['active'] && $pv['required'] && $value === '') {
+                    $errors[] = sprintf('%s is required.', $pv['name']);
+                }
+
+                // Check min/max for numeric quantity-type variables
+                if ($value !== '' && $pv['type'] == 1) {
+                    $numValue = (float) $value;
+                    if ($pv['p_minimum'] !== null && $pv['p_minimum'] > 0 && $numValue < $pv['p_minimum']) {
+                        $errors[] = sprintf('%s must be at least %d.', $pv['name'], $pv['p_minimum']);
+                    }
+                    if ($pv['p_maximum'] !== null && $pv['p_maximum'] > 0 && $numValue > $pv['p_maximum']) {
+                        $errors[] = sprintf('%s must be at most %d.', $pv['name'], $pv['p_maximum']);
+                    }
+                }
+            }
+        }
+
+        // 2. Product availability
+        $product = new Product($id_product, false, $id_lang);
+        if (!Validate::isLoadedObject($product) || !$product->active) {
+            $errors[] = 'Product is not available.';
+        }
+
+        // 3. Banned combination validation
+        $bannedResult = $this->module->validateBannedCombinations($id_product, $params);
+        if (is_array($bannedResult) && !empty($bannedResult['banned'])) {
+            $errors[] = $bannedResult['reason'] ?: 'This combination is not allowed.';
+        }
+
+        if (!empty($errors)) {
+            $this->jsonResponse([
+                'success' => true,
+                'validation' => [
+                    'valid' => false,
+                    'errors' => $errors,
+                ],
+            ]);
+        }
+
+        $this->jsonResponse([
+            'success' => true,
+            'validation' => [
+                'valid' => true,
+                'errors' => [],
+            ],
+        ]);
     }
 
     // ── Helpers ──
@@ -478,24 +626,11 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
     }
 
     /**
-     * Build a configuration summary from JSON.
+     * Build a configuration summary from JSON (text version).
      */
     private function buildConfigSummary($json)
     {
-        $config = json_decode($json, true);
-        if (!$config || !is_array($config)) {
-            return '';
-        }
-
-        $parts = [];
-        foreach ($config as $key => $value) {
-            if (is_array($value)) {
-                $value = implode(', ', $value);
-            }
-            $parts[] = $key . ': ' . $value;
-        }
-
-        return implode(' | ', $parts);
+        return ConfigurationSummaryRenderer::renderText($json);
     }
 
     /**
@@ -506,5 +641,101 @@ class ProductPriceConfigOfferAjaxModuleFrontController extends ModuleFrontContro
         http_response_code($status_code);
         header('Content-Type: application/json');
         die(json_encode($data));
+    }
+
+    /**
+     * Generate and stream the offer PDF (AJAX download, no new tab).
+     */
+    private function actionPrintPdf()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        if (!$id_offer) {
+            $this->jsonResponse(['success' => false, 'error' => 'Offer ID required.'], 400);
+        }
+
+        $offer = Offer::getOffer($id_offer);
+        if (!$offer) {
+            $this->jsonResponse(['success' => false, 'error' => 'Offer not found.'], 404);
+        }
+
+        try {
+            $pdfGenerator = new OfferPdfGenerator($this->module);
+            $pdfContent = $pdfGenerator->generate($id_offer);
+
+            if (!$pdfContent) {
+                $this->jsonResponse(['success' => false, 'error' => 'Failed to generate PDF.'], 500);
+            }
+
+            // Clean any accidental output buffer before sending binary PDF
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            $filename = 'Offer_' . $offer['reference'] . '.pdf';
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Content-Length: ' . strlen($pdfContent));
+            header('Cache-Control: private, no-cache, no-store, must-revalidate');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            echo $pdfContent;
+            exit;
+        } catch (Exception $e) {
+            PrestaShopLogger::addLog('OfferPdfGenerator (front) error: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), 3);
+            $this->jsonResponse(['success' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Download an attachment file (stream, no new tab).
+     */
+    private function actionDownloadAttachment()
+    {
+        $id_attachment = (int) Tools::getValue('id_attachment');
+        if (!$id_attachment) {
+            $this->jsonResponse(['success' => false, 'error' => 'Attachment ID required.'], 400);
+        }
+
+        $attachment = OfferAttachment::getById($id_attachment);
+        if (!$attachment) {
+            $this->jsonResponse(['success' => false, 'error' => 'Attachment not found.'], 404);
+        }
+
+        $uploadDir = _PS_UPLOAD_DIR_ . 'offer_attachments/';
+        $filePath = $uploadDir . $attachment['saved_name'];
+
+        if (!file_exists($filePath)) {
+            $this->jsonResponse(['success' => false, 'error' => 'File not found on disk.'], 404);
+        }
+
+        $filename = $attachment['original_name'] ?: $attachment['saved_name'];
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . filesize($filePath));
+        readfile($filePath);
+        exit;
+    }
+
+    /**
+     * Cancel an offer (AJAX).
+     */
+    private function actionCancelOffer()
+    {
+        $id_offer = (int) Tools::getValue('id_offer');
+        if (!$id_offer) {
+            $this->jsonResponse(['success' => false, 'error' => 'Offer ID required.'], 400);
+        }
+
+        $offer = new Offer($id_offer);
+        if (!Validate::isLoadedObject($offer)) {
+            $this->jsonResponse(['success' => false, 'error' => 'Offer not found.'], 404);
+        }
+
+        Offer::updateStatus($id_offer, Offer::STATUS_CANCELLED);
+        OfferHistoryLogger::log($id_offer, OfferHistory::ACTION_STATUS_CHANGED, [
+            'description' => 'Offer cancelled.',
+        ]);
+
+        $this->jsonResponse(['success' => true, 'status' => Offer::STATUS_CANCELLED]);
     }
 }

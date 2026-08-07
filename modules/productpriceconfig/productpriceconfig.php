@@ -51,6 +51,7 @@ require_once(dirname(__FILE__) . '/offer/services/OfferHistoryLogger.php');
 require_once(dirname(__FILE__) . '/offer/services/OfferEmailNotifier.php');
 require_once(dirname(__FILE__) . '/offer/services/OfferPdfGenerator.php');
 require_once(dirname(__FILE__) . '/offer/services/OfferService.php');
+require_once(dirname(__FILE__) . '/offer/services/ConfigurationSummaryRenderer.php');
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -309,10 +310,12 @@ class ProductPriceConfig extends Module
                 `uploaded_file` varchar(500) DEFAULT NULL,
                 `quantity` int(10) unsigned NOT NULL DEFAULT 1,
                 `offered_price` decimal(20,4) DEFAULT NULL,
+                `estimated_price` decimal(20,4) DEFAULT NULL,
                 `discounted_amount` decimal(20,4) DEFAULT NULL,
                 `weight` decimal(20,2) DEFAULT NULL,
                 `production_time` varchar(255) DEFAULT NULL,
                 `product_status` varchar(32) NOT NULL DEFAULT 'waiting_for_price',
+                `product_type` varchar(20) NOT NULL DEFAULT 'normal',
                 `admin_note` text,
                 `customer_note` text,
                 `date_add` datetime NOT NULL,
@@ -361,8 +364,11 @@ class ProductPriceConfig extends Module
             Db::getInstance()->execute($sqlOffer3);
             Db::getInstance()->execute($sqlOffer4);
 
+            
             // Default offer validity setting
             Configuration::updateValue('PPC_OFFER_VALIDITY_DAYS', 15);
+            Configuration::updateValue('PPC_CUSTOM_QUOTE_PRODUCT_ID', 0);
+            Configuration::updateValue('PPC_CUSTOM_QUOTE_TOOLTIP', '');
 
             // Offer admin tab under ProductPriceConfig parent
             
@@ -1021,9 +1027,11 @@ class ProductPriceConfig extends Module
                 // Get variable type to determine "For Value" display
                 $varObj = new KDVariable((int) $c['id_variable'], $id_lang);
                 $for_value = '--';
+                $old_value = 0;
                 if (Validate::isLoadedObject($varObj) && $varObj->type == 2 && $c['id_option']) {
                     $option = new KDOption((int) $c['id_option'], $id_lang);
                     $for_value = Validate::isLoadedObject($option) ? $option->label : '--';
+                    $old_value = $option->price;
                 } elseif ($c['id_option']) {
                     $for_value = $c['id_option'];
                 }
@@ -1032,9 +1040,26 @@ class ProductPriceConfig extends Module
                     ? '<span class="fc-badge fc-badge-percentage">Percentage</span>'
                     : '<span class="fc-badge fc-badge-fixed">Fixed</span>';
 
-                $apply_label = $c['apply_type'] === 'total'
-                    ? '<span class="fc-badge fc-badge-total">Total Price</span>'
-                    : '<span class="fc-badge fc-badge-per-unit">Per Unit</span>';
+                
+                if($old_value > 0) {
+                  $old_value_text = '<span class="fc-badge fc-badge-total">'.$old_value.'</span>';
+                }else{
+                    $old_value_text = '--';
+                }
+
+                if ($c['surcharge_type'] === 'percentage') {
+                    $surcharge = $old_value * ($c['amount'] / 100);
+                } else {
+                    $surcharge =  $old_value + $c['amount'];
+                }
+
+                
+                $new_value =  $surcharge;
+                if($new_value > 0) {
+                   $new_value_text = '<span class="fc-badge fc-badge-per-unit">'.$new_value.'</span>';
+                }else{  
+                   $new_value_text = '--';
+                }
 
                 $unit = $c['surcharge_type'] === 'percentage' ? '%' : '&euro;';
                 $checked = $c['active'] ? 'checked' : '';
@@ -1046,7 +1071,8 @@ class ProductPriceConfig extends Module
                 $html .= '<td>' . $surcharge_label . '</td>';
                 $html .= '<td>' . $c['amount'] . '</td>';
                 $html .= '<td>' . $unit . '</td>';
-                $html .= '<td>' . $apply_label . '</td>';
+                $html .= '<td>' . $old_value_text . '</td>';
+                $html .= '<td>' . $new_value_text . '</td>';
                 $html .= '<td>' . htmlspecialchars($c['notes'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>';
                 $html .= '<td class="fc-actions">';
                 $html .= '<a href="#" class="fc-edit" data-id="' . (int) $c['id_formula_condition'] . '"><i class="fa fa-edit"></i> Edit</a>';
@@ -1067,7 +1093,7 @@ class ProductPriceConfig extends Module
         $custom_value = Tools::getValue('custom_value');
         $surcharge_type = Tools::getValue('surcharge_type');
         $amount = (float) Tools::getValue('amount');
-        $apply_type = Tools::getValue('apply_type');
+        $apply_type = 'total';//Tools::getValue('apply_type');
         $notes = Tools::getValue('notes');
         $active = (int) Tools::getValue('active') ? 1 : 0;
 
@@ -1123,7 +1149,7 @@ class ProductPriceConfig extends Module
         $custom_value = Tools::getValue('custom_value');
         $surcharge_type = Tools::getValue('surcharge_type');
         $amount = (float) Tools::getValue('amount');
-        $apply_type = Tools::getValue('apply_type');
+        $apply_type = 'total';//Tools::getValue('apply_type');
         $notes = Tools::getValue('notes');
         $active = (int) Tools::getValue('active') ? 1 : 0;
 
@@ -1669,6 +1695,12 @@ class ProductPriceConfig extends Module
             Configuration::updateValue('productpriceconfig_trusted_badge', $safe_html, true);
 
             Tools::redirectAdmin(AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'));
+        } elseif (Tools::isSubmit('saveCustomQuote' . $this->name)) {
+            $id_custom_product = (int) Tools::getValue('ppc_custom_quote_product_id', 0);
+            $tooltip_text = Tools::getValue('ppc_custom_quote_tooltip', '');
+            Configuration::updateValue('PPC_CUSTOM_QUOTE_PRODUCT_ID', $id_custom_product);
+            Configuration::updateValue('PPC_CUSTOM_QUOTE_TOOLTIP', $tooltip_text, true);
+            Tools::redirectAdmin(AdminController::$currentIndex . '&configure=' . $this->name . '&token=' . Tools::getAdminTokenLite('AdminModules'));
         } elseif (Tools::isSubmit('saveUpload' . $this->name)) {
             ob_start();
             // Disable error reporting for production to avoid any warnings being sent in the CSV output
@@ -2006,6 +2038,7 @@ class ProductPriceConfig extends Module
             $helper_start_form = $this->initStartForm();
             $html_form = $this->initHtmlForm();
             $trusted_badge_form = $this->initTrustedBadgeForm();
+            $custom_quote_form = $this->initCustomQuoteForm();
             $upload_form = $this->initUploadForm();
             $helper = $this->initList();
             // return $this->_html . $helper_start_form->generateForm($this->fields_form)  . $helper->generateList(KDProductSetting::getAll((int)$this->context->language->id), $this->fields_list);
@@ -2013,6 +2046,7 @@ class ProductPriceConfig extends Module
                 . $helper_start_form->generateForm($this->fields_form)
                 . $html_form->generateForm($this->html_form)
                 . $trusted_badge_form->generateForm($this->trusted_badge_form)
+                . $custom_quote_form->generateForm($this->custom_quote_form)
                 . $upload_form->generateForm($this->upload_form)
                 . $helper->generateList(KDProductSetting::getAll((int)$this->context->language->id), $this->fields_list);
         }
@@ -2353,9 +2387,66 @@ class ProductPriceConfig extends Module
         return $helper;
     }
 
-    public function getAvailableOptions($include_parents = true)
+    protected function initCustomQuoteForm()
     {
-        $id_lang = $this->context->language->id;
+        $this->custom_quote_form[0]['form'] = array(
+            'legend' => array(
+                'title' => $this->l('Custom Quote Product'),
+                'icon'  => 'icon-shopping-cart'
+            ),
+            'input' => array(
+                array(
+                    'type'     => 'text',
+                    'label'    => $this->l('Custom Quote Product ID'),
+                    'name'     => 'ppc_custom_quote_product_id',
+                    'class'    => 'fixed-width-xxl',
+                    'desc'     => $this->l('Enter the PrestaShop product ID that will be loaded when customers click "Request Custom Product". This product should have PPC configuration enabled.'),
+                    'hint'     => $this->l('The product will be hidden from the shop catalogue and only accessible via the Offer feature.')
+                ),
+                array(
+                    'type'     => 'textarea',
+                    'label'    => $this->l('Custom Quote Tooltip'),
+                    'name'     => 'ppc_custom_quote_tooltip',
+                    'cols'     => 60,
+                    'rows'     => 4,
+                    'desc'     => $this->l('This text is displayed as a tooltip when customers hover over the info icon on the Create Offer page.')
+                ),
+            ),
+            'submit' => array(
+                'title' => $this->l('Save'),
+            ),
+        );
+
+        $helper = new HelperForm();
+        $helper->show_toolbar = false;
+        $helper->table = $this->table;
+        $helper->module = $this;
+        $lang = new Language((int) Configuration::get('PS_LANG_DEFAULT'));
+        $helper->default_form_language = $lang->id;
+        $helper->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') ? Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG') : 0;
+
+        $helper->identifier = $this->identifier;
+        $helper->submit_action = 'saveCustomQuote' . $this->name;
+        $helper->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
+            . '&configure=' . $this->name
+            . '&tab_module=' . $this->tab
+            . '&module_name=' . $this->name;
+        $helper->token = Tools::getAdminTokenLite('AdminModules');
+
+        $helper->tpl_vars = array(
+            'fields_value' => array(
+                'ppc_custom_quote_product_id' => (int) Configuration::get('PPC_CUSTOM_QUOTE_PRODUCT_ID', 0),
+                'ppc_custom_quote_tooltip'   => Configuration::get('PPC_CUSTOM_QUOTE_TOOLTIP', ''),
+            ),
+            'languages'    => $this->context->controller->getLanguages(),
+            'id_language'  => $this->context->language->id
+        );
+
+        return $helper;
+    }
+
+    public function getAvailableOptions($include_parents = true)
+    {        $id_lang = $this->context->language->id;
         $id_shop = $this->context->shop->id;
         $available_options = array();
 
@@ -2403,6 +2494,7 @@ class ProductPriceConfig extends Module
         //$this->addCustomMedia();
         Media::addJsDef(array(
             'kd_ajax_path' => $this->context->link->getModuleLink($this->name, 'ajax', array('ajax' => 1)),
+            'ppc_validate_url' => $this->context->link->getModuleLink($this->name, 'offerajax', array(), true),
             'current_controller' => Tools::getValue('controller'),
             'is_17' => (int)$this->is_17,
             'adding_to_cart_text' => $this->l('Aan winkelwagen toevoegen'),
@@ -2878,6 +2970,130 @@ class ProductPriceConfig extends Module
         return $this->display(__FILE__, 'views/templates/hook/display_footer_product.tpl');
     }
 
+    /**
+     * Render the product configurator for the Offer page.
+     *
+     * Reuses the exact same data-loading logic as hookDisplayReassurance
+     * (variables, options, rules, tooltips, banned combinations, tiered pricing)
+     * but renders the dedicated Offer template instead of the Product Detail template.
+     *
+     * @param int $id_product
+     * @return string|false Rendered HTML or false if product has no configuration
+     */
+    public function renderOfferConfigurator($id_product)
+    {
+        $id_product = (int) $id_product;
+        if (!$id_product) {
+            return false;
+        }
+
+        $row = KDProductSetting::getByProductId($id_product);
+        if (!$row['id_product_setting']) {
+            return false;
+        }
+
+        $product_setting = new KDProductSetting($row['id_product_setting']);
+
+        $available_product_variables = $this->db->executeS('
+            SELECT p.*,pv.*,pvl.*, pl.name as name, p.maximum as p_maximum, p.minimum as p_minimum, p.active as active
+            FROM ' . _DB_PREFIX_ . 'product_variable p
+            LEFT JOIN `' . _DB_PREFIX_ . 'product_variable_lang` pl ON (pl.`id_product_variable`= p.`id_product_variable` AND pl.`id_lang` = ' . (int)$this->context->language->id . ' )
+            LEFT JOIN `' . _DB_PREFIX_ . 'variable` pv ON (pv.`id_variable`= p.`id_variable`)
+            LEFT JOIN `' . _DB_PREFIX_ . 'variable_lang` pvl ON (pvl.`id_variable`= p.`id_variable` AND pvl.`id_lang` = ' . (int)$this->context->language->id . ' )
+            WHERE p.id_product = ' . (int)$id_product . '
+            ORDER BY p.`id_product_variable` ');
+
+        $variable_position = json_decode($product_setting->variable_position, true);
+
+        if ($variable_position) {
+            usort($available_product_variables, function ($a, $b) use ($variable_position) {
+                $pos_a = array_search($a['id_product_variable'], $variable_position);
+                $pos_b = array_search($b['id_product_variable'], $variable_position);
+                return $pos_a - $pos_b;
+            });
+        }
+
+        foreach ($available_product_variables as &$data) {
+            $varObj = new KDVariable($data['id_variable'], (int)$this->context->language->id);
+            $data['variable_name'] = $varObj->name;
+            if (!$data['formula_name']) {
+                $data['formula_name'] = $data['variable_name'];
+            }
+            $data['type'] = $varObj->type;
+            $data['fixed_price'] = $varObj->fixed_price;
+
+            if ($varObj->type == 7) {
+                $obj_option = new KDOption($data['default_option']);
+                $data['fixed_price'] = $obj_option->price;
+            }
+
+            $tip = new KDToolTip($data['id_variable_tooltip'], (int)$this->context->language->id);
+            $data['tooltip_text'] = $tip->text;
+
+            $options = json_decode($data['options'], true);
+
+            if (is_array($options) && count($options)) {
+                $options_implode = implode(",", $options);
+                $option_sql = '
+                    SELECT a.`id_option`
+                    FROM ' . _DB_PREFIX_ . 'option a
+                    WHERE a.`id_option` IN (' . $options_implode . ') AND active = 1
+                    ORDER BY a.`position`';
+                $option_res = Db::getInstance(_PS_USE_SQL_SLAVE_)->executeS($option_sql);
+                if (count($option_res)) {
+                    $sortingFunction = function ($a, $b) use ($options) {
+                        $pos_a = array_search($a['id_option'], $options);
+                        $pos_b = array_search($b['id_option'], $options);
+                        return $pos_a - $pos_b;
+                    };
+                    usort($option_res, $sortingFunction);
+                    foreach ($option_res as $option_data) {
+                        $option = new KDOption($option_data['id_option'], (int)$this->context->language->id);
+                        $data['options_data'][$option->id]['id'] = $option->id;
+                        $data['options_data'][$option->id]['name'] = $option->label;
+                        $data['options_data'][$option->id]['price'] = $option->price;
+                        $data['options_data'][$option->id]['weight'] = $option->weight;
+                        $data['options_data'][$option->id]['thickness'] = $option->thickness;
+                    }
+                }
+            }
+        }
+
+        $tiered_price = json_decode($product_setting->tiered, true);
+
+        $js = $this->getBannedCombinationJs($id_product);
+
+        if ($js) {
+            $js = '<script type="text/javascript">' . $js . '</script>';
+        }
+
+        //$this->addJS('front.js');
+
+
+        Media::addJsDef(array(
+            'kd_ajax_path' => $this->context->link->getModuleLink($this->name, 'ajax', array('ajax' => 1)),
+            'ppc_validate_url' => $this->context->link->getModuleLink($this->name, 'offerajax', array(), true),
+            'current_controller' => 'offer',
+            'is_17' => (int)$this->is_17,
+            'adding_to_cart_text' => $this->l('Aan winkelwagen toevoegen'),
+        ));
+
+        $this->context->smarty->assign(array(
+            'variables' => $available_product_variables,
+            'id_product' => $id_product,
+            'link' => $this->context->link,
+            'product_setting' => $product_setting,
+            'tiered_price' => $tiered_price,
+            'this' => $this,
+            'kd_ajax_path' => $this->context->link->getModuleLink($this->name, 'ajax', array('ajax' => 1)),
+            'ppc_validate_url' => $this->context->link->getModuleLink($this->name, 'offerajax', array(), true),
+            'id_customization' => 0,
+            'js' => $js,
+        ));
+
+        return $this->display(__FILE__, 'views/templates/front/offer/product_config.tpl');
+    }
+
     public function getPriceFactor($value, $type)
     {
 
@@ -3134,6 +3350,9 @@ class ProductPriceConfig extends Module
     $current_pages = null;
     $current_printside = null;
 
+    $conditions = ProductFormulaCondition::getActiveConditions($params['id_product']);
+        
+
     foreach ($available_product_variables as $data) {
 
             if (isset($params['variable_' . $data['id_product_variable']])) {
@@ -3202,6 +3421,13 @@ class ProductPriceConfig extends Module
                 $name =  '[' . $data['formula_name'] . ']';
 
                 if ($value_price) {
+                    $surcharge_total = $this->calculateFormulaConditionSurcharge(  $conditions,
+                        $data['id_variable'],
+                        $params['variable_' . $data['id_product_variable']],
+                        $value_price
+                    );
+                    $value_price = $surcharge_total;
+        
                     $formula_price = str_replace($name, $value_price, $formula_price);
                     $formula_tiers = str_replace($name, $value_price, $formula_tiers);
                 }
@@ -3367,15 +3593,7 @@ class ProductPriceConfig extends Module
         }
 
         // ── Formula Conditions surcharge ──
-        $surcharge_total = $this->calculateFormulaConditionSurcharge(
-            (int) $params['id_product'],
-            $params,
-            $price_wot,
-            $qty
-        );
-        $price_wot += $surcharge_total;
-        $price_wot_dis += $surcharge_total;
-
+        
 
         return array('price' => $price_wot, 'price_wot_dis' => $price_wot_dis, 'formula_price' => $formula_price_evaluated, 'weight' => $weight, 'thickness' => $thickness, 'package' => $package, 'qty' => $qty);
     }
@@ -3397,27 +3615,16 @@ class ProductPriceConfig extends Module
      * @param int   $qty        Quantity
      * @return float Total surcharge to add
      */
-    private function calculateFormulaConditionSurcharge($id_product, $params, $price_wot, $qty)
+    private function calculateFormulaConditionSurcharge($conditions, $id_vari, $value, $value_price)
     {
-        $conditions = ProductFormulaCondition::getActiveConditions($id_product);
         if (!$conditions) {
             return 0;
         }
 
         // Build a map of id_variable => selected value from params
         $selected_values = [];
-        $available_product_variables = $this->db->executeS('
-            SELECT id_product_variable, id_variable
-            FROM ' . _DB_PREFIX_ . 'product_variable
-            WHERE id_product = ' . (int) $id_product
-        ) ?: [];
-
-        foreach ($available_product_variables as $pv) {
-            $var_key = 'variable_' . $pv['id_product_variable'];
-            if (isset($params[$var_key])) {
-                $selected_values[(int) $pv['id_variable']] = $params[$var_key];
-            }
-        }
+        
+        $selected_values[(int) $id_vari] = $value;
 
         $total_surcharge = 0;
 
@@ -3454,18 +3661,16 @@ class ProductPriceConfig extends Module
             $amount = (float) $cond['amount'];
 
             if ($cond['surcharge_type'] === 'percentage') {
-                $surcharge = $price_wot * ($amount / 100);
+                $surcharge = $value_price * ($amount / 100);
             } else {
-                $surcharge = $amount;
+                $surcharge = $value_price + $amount;
             }
 
-            // Apply per-unit or total
-            if ($cond['apply_type'] === 'per_unit') {
-                $surcharge = $surcharge * (int) $qty;
-            }
 
-            $total_surcharge += $surcharge;
+            $total_surcharge = $surcharge;
         }
+
+        //echo $total_surcharge.'#';
 
         return $total_surcharge;
     }
@@ -3506,8 +3711,13 @@ class ProductPriceConfig extends Module
         $product = new Product($params['id_product'], false, (int)$this->context->language->id);
 
         $id_product_attribute = $params['id_product_attribute'];
+
+        
         $price_weight = $this->getCalculatedProductPriceWeight($params);
         $price_wot = $price_weight['price'];
+        $total_weight = $price_weight['weight'];
+        $total_thickness = $price_weight['thickness'];
+
 
         $formula_price = $price_weight['formula_price'];
         $send = [];
@@ -3518,6 +3728,15 @@ class ProductPriceConfig extends Module
         }
 
         $price_wot = Tools::ps_round($price_wot, 2);
+
+        if($params['offered_price'] && $params['offered_price'] > 0){
+            $price_wot = $params['offered_price'];
+        }
+
+        if($params['weight'] && $params['weight'] > 0){
+            $total_weight = $params['weight'];
+        }
+
         $price_wot = $this->getAdjustedDisplayPrice(
             (int) $params['id_product'],
             (int) $price_weight['qty'],
@@ -3525,17 +3744,13 @@ class ProductPriceConfig extends Module
         );
 
         
-       
-
         if (isset($params['id_customization']) && $params['id_customization']) {
             //$this->context->cart->deleteProduct($product->id, $id_product_attribute, (int) $params['id_customization']);
         }
 
         $id_customization = $this->context->cart->saveCustomization($product->id, $id_product_attribute);
 
-        $total_weight = $price_weight['weight'];
-        $total_thickness = $price_weight['thickness'];
-
+        
         $available_product_variables = $this->db->executeS('
             SELECT p.*, pl.name 
             FROM ' . _DB_PREFIX_ . 'product_variable p

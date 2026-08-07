@@ -147,13 +147,73 @@ class ImportRunner
         return $db->Insert_ID();
     }
 
-    private function importVariable($var, $selectedOptions, $selections, &$results)
-    {      
-        $db = Db::getInstance();
-        $code = $var['code'];
-        $label = isset($var['label']) ? $var['label'] : $code;
+    private function logImportDebug($message, array $context = [])
+    {
+        $details = $message;
+        if (!empty($context)) {
+            $details .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
 
-        // base and i18n tables
+        error_log('[ProductPriceConfig][ImportRunner] ' . $details);
+
+        if (class_exists('\PrestaShopLogger')) {
+            try {
+                \PrestaShopLogger::addLog($details, 1, null, null, null, true);
+            } catch (\Exception $e) {
+                // Ignore logger failures during import.
+            }
+        }
+    }
+
+    private function executeImportSql($db, $sql, $context)
+    {
+        $this->logImportDebug('Executing SQL', [
+            'context' => $context,
+            'sql' => $sql,
+        ]);
+
+        $result = $db->execute($sql);
+        if ($result === false) {
+            $this->logImportDebug('SQL execution failed', [
+                'context' => $context,
+                'sql' => $sql,
+                'db_error_number' => $db->getNumberError(),
+                'db_error_message' => $db->getMsgError(),
+            ]);
+        }
+
+        return $result;
+    }
+
+    private function getImportScalar($db, $sql, $context)
+    {
+        $this->logImportDebug('Running SQL lookup', [
+            'context' => $context,
+            'sql' => $sql,
+        ]);
+
+        $value = $db->getValue($sql);
+        $this->logImportDebug('SQL lookup result', [
+            'context' => $context,
+            'value' => $value,
+        ]);
+
+        return $value;
+    }
+
+    private function importVariable($var, $selectedOptions, $selections, &$results)
+    {
+        $db = Db::getInstance();
+        $code = isset($var['code']) ? (string) $var['code'] : '';
+        $label = isset($var['label']) ? (string) $var['label'] : $code;
+        $printformerName = isset($var['printformer_name']) ? (string) $var['printformer_name'] : '';
+
+        $this->logImportDebug('Starting variable import', [
+            'code' => $code,
+            'label' => $label,
+            'selectedOptions' => $selectedOptions,
+        ]);
+
         $tblVar = pSQL(_DB_PREFIX_) . 'variable';
         $tblVarLang = pSQL(_DB_PREFIX_) . 'variable_lang';
         $tblOpt = pSQL(_DB_PREFIX_) . 'option';
@@ -161,28 +221,43 @@ class ImportRunner
         $languages = \Language::getLanguages(true);
         $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
 
-        // find existing variable by code (stored in variable.name)
-        $idVar = $db->getValue("SELECT id_variable FROM $tblVar WHERE name='" . pSQL($code) . "'");
+        $idVar = (int) $this->getImportScalar(
+            $db,
+            "SELECT id_variable FROM $tblVar WHERE name='" . pSQL($code) . "'",
+            ['phase' => 'find existing variable']
+        );
         $overwrite = !empty($selections['overwrite']);
 
         if ($idVar) {
-            // update/insert variable_lang labels
             if ($overwrite) {
                 foreach ($languages as $lang) {
                     $idLang = (int) $lang['id_lang'];
-                    $exists = $db->getValue("SELECT 1 FROM $tblVarLang WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
+                    $exists = (int) $this->getImportScalar(
+                        $db,
+                        "SELECT 1 FROM $tblVarLang WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang,
+                        ['phase' => 'check variable_lang row', 'id_variable' => $idVar, 'id_lang' => $idLang]
+                    );
+
                     if ($exists) {
                         $now = date('Y-m-d H:i:s');
                         $sql = "UPDATE $tblVar SET " .
                             "name = '" . pSQL($code) . "', " .
-                            "printformer_name = '" . pSQL($var['printformer_name']) . "', " .
+                            "printformer_name = '" . pSQL($printformerName) . "', " .
                             "date_upd = '" . pSQL($now) . "' " .
                             "WHERE id_variable = " . (int) $idVar;
-                        $db->execute($sql);
+                        $this->executeImportSql($db, $sql, ['phase' => 'update variable base', 'id_variable' => $idVar]);
 
-                        $db->execute("UPDATE $tblVarLang SET label='" . pSQL($label) . "' WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang);
+                        $this->executeImportSql(
+                            $db,
+                            "UPDATE $tblVarLang SET label='" . pSQL($label) . "' WHERE id_variable=" . (int) $idVar . " AND id_lang=" . $idLang,
+                            ['phase' => 'update variable_lang label', 'id_variable' => $idVar, 'id_lang' => $idLang]
+                        );
                     } else {
-                        $db->execute("INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . (int) $idVar . ", " . $idLang . ", '" . pSQL($label) . "')");
+                        $this->executeImportSql(
+                            $db,
+                            "INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . (int) $idVar . ", " . $idLang . ", '" . pSQL($label) . "')",
+                            ['phase' => 'insert variable_lang row', 'id_variable' => $idVar, 'id_lang' => $idLang]
+                        );
                     }
                 }
                 $results['imported'][] = "Variable updated: $code";
@@ -190,48 +265,77 @@ class ImportRunner
                 $results['skipped'][] = "Variable exists and skipped: $code";
             }
         } else {
-            // Insert minimal base variable row
             $now = date('Y-m-d H:i:s');
-            $db->execute(
+            $this->executeImportSql(
+                $db,
                 "INSERT INTO $tblVar (name, type, fixed_price, printformer_name, minimum, maximum, required, active, position, date_add, date_upd) VALUES (" .
                     "'" . pSQL($code) . "', " .
-                    "'" . pSQL('2') . "', " . // default to select type
-                    "'" . pSQL($var['printformer_name']) . "', " .
+                    "'" . pSQL('2') . "', " .
+                    "'" . pSQL($printformerName) . "', " .
                     "0, 0, 0, 0, 1, 0, " .
-                    "'" . pSQL($now) . "', '" . pSQL($now) . "')"
+                    "'" . pSQL($now) . "', '" . pSQL($now) . "')",
+                ['phase' => 'create variable', 'code' => $code]
             );
+
             $idVar = (int) $db->Insert_ID();
-            // Insert labels for all languages (use same label)
+            $this->logImportDebug('New variable inserted', ['id_variable' => $idVar, 'code' => $code]);
+
             foreach ($languages as $lang) {
                 $idLang = (int) $lang['id_lang'];
-                $db->execute("INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . $idVar . ", " . $idLang . ", '" . pSQL($label) . "')");
+                $this->executeImportSql(
+                    $db,
+                    "INSERT INTO $tblVarLang (id_variable, id_lang, label) VALUES (" . $idVar . ", " . $idLang . ", '" . pSQL($label) . "')",
+                    ['phase' => 'insert variable_lang labels', 'id_variable' => $idVar, 'id_lang' => $idLang]
+                );
             }
             $results['imported'][] = "Variable created: $code";
         }
 
-        // Options
         if (!is_array($selectedOptions)) {
             $selectedOptions = [];
         }
+
         foreach ($selectedOptions as $optValue) {
-            $optValue = (string)$optValue;
-            // find option by translated label in default language
-            $idOpt = $db->getValue(
+            $optValue = (string) $optValue;
+            $this->logImportDebug('Processing option value', ['code' => $code, 'option' => $optValue]);
+
+            $idOpt = (int) $this->getImportScalar(
+                $db,
                 "SELECT o.id_option 
                  FROM $tblOpt o 
                  INNER JOIN $tblOptLang ol ON o.id_option = ol.id_option 
-                 WHERE o.id_variable=" . (int)$idVar . " AND ol.id_lang=" . (int)$defaultIdLang . " AND ol.label='" . pSQL($optValue) . "'"
+                 WHERE o.id_variable=" . (int) $idVar . " AND ol.id_lang=" . (int) $defaultIdLang . " AND ol.label='" . pSQL($optValue) . "'",
+                ['phase' => 'find existing option by label', 'id_variable' => $idVar, 'option' => $optValue]
             );
+
             if ($idOpt) {
                 if ($overwrite) {
-                    // update label across languages
+                    $this->executeImportSql(
+                        $db,
+                        "UPDATE $tblOpt SET id_variable=" . (int) $idVar . ", price=0, position=0, weight=0, active=1 WHERE id_option=" . (int) $idOpt,
+                        ['phase' => 'update option base', 'id_option' => $idOpt, 'id_variable' => $idVar]
+                    );
+
                     foreach ($languages as $lang) {
-                        $idLang = (int)$lang['id_lang'];
-                        $exists = $db->getValue("SELECT 1 FROM $tblOptLang WHERE id_option=" . (int)$idOpt . " AND id_lang=" . $idLang);
+                        $idLang = (int) $lang['id_lang'];
+                        $exists = (int) $this->getImportScalar(
+                            $db,
+                            "SELECT 1 FROM $tblOptLang WHERE id_option=" . (int) $idOpt . " AND id_lang=" . $idLang,
+                            ['phase' => 'check option_lang row', 'id_option' => $idOpt, 'id_lang' => $idLang]
+                        );
+
                         if ($exists) {
-                            $db->execute("UPDATE $tblOptLang SET label='" . pSQL($optValue) . "' WHERE id_option=" . (int)$idOpt . " AND id_lang=" . $idLang);
+                            $this->executeImportSql(
+                                $db,
+                                "UPDATE $tblOptLang SET label='" . pSQL($optValue) . "' WHERE id_option=" . (int) $idOpt . " AND id_lang=" . $idLang,
+                                ['phase' => 'update option_lang label', 'id_option' => $idOpt, 'id_lang' => $idLang]
+                            );
                         } else {
-                            $db->execute("INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int)$idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')");
+                            $this->executeImportSql(
+                                $db,
+                                "INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int) $idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')",
+                                ['phase' => 'insert option_lang row', 'id_option' => $idOpt, 'id_lang' => $idLang]
+                            );
                         }
                     }
                     $results['imported'][] = "Option updated: $code => $optValue";
@@ -239,12 +343,22 @@ class ImportRunner
                     $results['skipped'][] = "Option exists and skipped: $code => $optValue";
                 }
             } else {
-                // create option with default values then add i18n labels
-                $db->execute("INSERT INTO $tblOpt (id_variable, price, printformer_price, position, weight, active) VALUES (" . (int)$idVar . ", 0,  0, 0, 1)");
-                $idOpt = (int)$db->Insert_ID();
+                $this->executeImportSql(
+                    $db,
+                    "INSERT INTO $tblOpt (id_variable, price, position, weight, active) VALUES (" . (int) $idVar . ", 0, 0, 0, 1)",
+                    ['phase' => 'create option', 'id_variable' => $idVar, 'option' => $optValue]
+                );
+
+                $idOpt = (int) $db->Insert_ID();
+                $this->logImportDebug('New option inserted', ['id_option' => $idOpt, 'id_variable' => $idVar, 'option' => $optValue]);
+
                 foreach ($languages as $lang) {
-                    $idLang = (int)$lang['id_lang'];
-                    $db->execute("INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int)$idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')");
+                    $idLang = (int) $lang['id_lang'];
+                    $this->executeImportSql(
+                        $db,
+                        "INSERT INTO $tblOptLang (id_option, id_lang, label) VALUES (" . (int) $idOpt . ", " . $idLang . ", '" . pSQL($optValue) . "')",
+                        ['phase' => 'insert option_lang labels', 'id_option' => $idOpt, 'id_lang' => $idLang]
+                    );
                 }
                 $results['imported'][] = "Option created: $code => $optValue";
             }

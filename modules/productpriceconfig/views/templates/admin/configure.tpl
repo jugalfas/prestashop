@@ -143,7 +143,8 @@
 						<th>{l s='Surcharge Type' mod='productpriceconfig'}</th>
 						<th>{l s='Amount' mod='productpriceconfig'}</th>
 						<th>{l s='Unit' mod='productpriceconfig'}</th>
-						<th>{l s='Apply On' mod='productpriceconfig'}</th>
+						<th>{l s='Old value' mod='productpriceconfig'}</th>
+						<th>{l s='New value' mod='productpriceconfig'}</th>
 						<th>{l s='Notes' mod='productpriceconfig'}</th>
 						<th>{l s='Actions' mod='productpriceconfig'}</th>
 					</tr>
@@ -557,7 +558,7 @@
 								<input type="number" step="0.01" class="form-control" id="fc_amount" placeholder="20">
 							</div>
 						</div>
-						<div class="col-md-4">
+						{* <div class="col-md-4">
 							<div class="form-group">
 								<label for="fc_apply_type">{l s='Apply Type' mod='productpriceconfig'}</label>
 								<select class="form-control" id="fc_apply_type">
@@ -565,7 +566,7 @@
 									<option value="per_unit">{l s='Apply Per Unit' mod='productpriceconfig'}</option>
 								</select>
 							</div>
-						</div>
+						</div> *}
 					</div>
 					<div class="row">
 						<div class="col-md-12">

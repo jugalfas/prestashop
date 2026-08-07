@@ -50,11 +50,37 @@ class ProductPriceConfigOfferDetailModuleFrontController extends ModuleFrontCont
         $detail = $service->getOfferDetail($id_offer);
 
         // Format products for display
+        $id_lang = (int) $this->context->language->id;
         $formattedProducts = [];
         foreach ($detail['products'] as $p) {
             $image = '';
             if (!empty($p['image_id'])) {
                 $image = $this->context->link->getImageLink($p['link_rewrite'], $p['image_id'], 'home_default');
+            }
+
+            // Render configuration summary as rich HTML (no raw JSON)
+            $configHtml = ConfigurationSummaryRenderer::renderHtml($p['configuration_json'], $id_lang);
+
+            // Calculate production time in days
+            $productionDays = self::parseProductionDays($p['production_time']);
+
+            // Format attachments with preview + size + download
+            $formattedAttachments = [];
+            if (!empty($p['attachments'])) {
+                foreach ($p['attachments'] as $att) {
+                    $isImage = self::isImageFile($att['original_name'] ?: $att['saved_name']);
+                    $thumbUrl = '';
+                    if ($isImage && !empty($att['saved_name'])) {
+                        $thumbUrl = $this->context->link->getMediaLink(_PS_UPLOAD_DIR_ . 'offer_attachments/' . $att['saved_name']);
+                    }
+                    $formattedAttachments[] = [
+                        'id_attachment' => (int) $att['id_attachment'],
+                        'original_name' => $att['original_name'] ?: $att['saved_name'],
+                        'formatted_size' => self::formatFileSize((int) ($att['size'] ?? 0)),
+                        'is_image' => $isImage,
+                        'thumb_url' => $thumbUrl,
+                    ];
+                }
             }
 
             $formattedProducts[] = [
@@ -66,14 +92,19 @@ class ProductPriceConfigOfferDetailModuleFrontController extends ModuleFrontCont
                 'image' => $image,
                 'configuration_json' => $p['configuration_json'],
                 'configuration_summary' => $p['configuration_summary'],
-                'offered_price' => $p['offered_price'] ? Tools::displayPrice((float) $p['offered_price']) : null,
+                'configuration_summary_html' => $configHtml,
+                'offered_price' => $p['offered_price'] !== null && $p['offered_price'] !== '' ? (float) $p['offered_price'] : null,
+                'estimated_price' => isset($p['estimated_price']) ? (float) $p['estimated_price'] : null,
+                'discounted_amount' => isset($p['discounted_amount']) ? (float) $p['discounted_amount'] : null,
                 'weight' => $p['weight'],
                 'production_time' => $p['production_time'],
+                'production_days' => $productionDays,
                 'product_status' => $p['product_status'],
+                'product_type' => isset($p['product_type']) ? $p['product_type'] : 'normal',
                 'product_status_label' => ucfirst(str_replace('_', ' ', $p['product_status'])),
                 'admin_note' => $p['admin_note'],
                 'customer_note' => $p['customer_note'],
-                'attachments' => $p['attachments'],
+                'attachments' => $formattedAttachments,
             ];
         }
 
@@ -102,9 +133,14 @@ class ProductPriceConfigOfferDetailModuleFrontController extends ModuleFrontCont
         $ajax_url = $this->context->link->getModuleLink($this->module->name, 'offerajax', [], true);
         $my_offers_url = $this->context->link->getModuleLink($this->module->name, 'offerlist', [], true);
         $create_url = $this->context->link->getModuleLink($this->module->name, 'offercreate', [], true);
+        $cart_url = $this->context->link->getPageLink('cart', null, $this->context->language->id, ['action' => 'show'], false, null, true);
+
+        // Add status_label to the offer array for the template
+        $offerData = $detail['offer'];
+        $offerData['status_label'] = ucfirst(str_replace('_', ' ', $offerData['status']));
 
         $this->context->smarty->assign([
-            'offer' => $detail['offer'],
+            'offer' => $offerData,
             'products' => $formattedProducts,
             'history' => $formattedHistory,
             'is_logged' => $is_logged,
@@ -112,11 +148,70 @@ class ProductPriceConfigOfferDetailModuleFrontController extends ModuleFrontCont
             'ajax_url' => $ajax_url,
             'my_offers_url' => $my_offers_url,
             'create_url' => $create_url,
+            'cart_url' => $cart_url,
             'is_expired' => $offer->isExpired(),
             'has_accepted' => !empty(OfferProduct::getAcceptedProducts($id_offer)),
         ]);
 
         $this->setTemplate('module:productpriceconfig/views/templates/front/offer/detail.tpl');
+    }
+
+    /**
+     * Parse a production_time string into a number of days.
+     * Handles "1 Week", "7", "2 Weeks", "3 Days", etc.
+     *
+     * @param string|null $productionTime
+     * @return int|null
+     */
+    private static function parseProductionDays($productionTime)
+    {
+        if (!$productionTime) {
+            return null;
+        }
+        $lower = strtolower(trim($productionTime));
+        $num = (int) preg_replace('/[^0-9]/', '', $lower);
+        if (!$num) {
+            return null;
+        }
+        if (strpos($lower, 'week') !== false) {
+            return $num * 7;
+        }
+        if (strpos($lower, 'month') !== false) {
+            return $num * 30;
+        }
+        return $num;
+    }
+
+    /**
+     * Check if a file is an image based on its extension.
+     *
+     * @param string $filename
+     * @return bool
+     */
+    private static function isImageFile($filename)
+    {
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
+    }
+
+    /**
+     * Format a file size in bytes to a human-readable string.
+     *
+     * @param int $bytes
+     * @return string
+     */
+    private static function formatFileSize($bytes)
+    {
+        if (!$bytes) {
+            return '0 B';
+        }
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+        if ($bytes < 1048576) {
+            return round($bytes / 1024, 1) . ' KB';
+        }
+        return round($bytes / 1048576, 1) . ' MB';
     }
 
     public function setMedia()

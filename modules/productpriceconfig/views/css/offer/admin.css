@@ -23,6 +23,21 @@
     background: #e8f5e9;
 }
 
+/* Converted-to-order rows get a distinct brand-tinted background */
+.offer-list-table tr.offer-row-converted {
+    background: #f4f8e3 !important;
+    border-left: 3px solid #afcb31;
+}
+
+.offer-list-table tr.offer-row-converted td {
+    background: #f4f8e3 !important;
+}
+
+.label-converted {
+    background: #afcb31;
+    color: #fff;
+}
+
 .offer-filters .form-control {
     height: 34px;
 }
@@ -85,7 +100,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #2fbad8;
+    background: #afcb31;
 }
 
 .timeline-content {
@@ -97,4 +112,223 @@
 /* Convert order modal */
 #convert-order-modal .modal-body {
     padding: 20px;
+}
+
+/* ── Date Picker ── */
+
+.date-picker-group {
+    position: relative;
+}
+
+.date-picker-group .form-control {
+    padding-left: 32px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.date-picker-group .input-group-addon {
+    cursor: pointer;
+}
+
+.offer-date-clear {
+    background: #f5f5f5 !important;
+}
+
+/* Date picker popup */
+.offer-datepicker-popup {
+    position: absolute;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.15);
+    padding: 12px;
+    width: 280px;
+    font-family: inherit;
+}
+
+.offer-datepicker-popup .dp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.offer-datepicker-popup .dp-nav-btn {
+    cursor: pointer;
+    color: #afcb31;
+    font-size: 16px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.offer-datepicker-popup .dp-nav-btn:hover {
+    background: #f0f9ff;
+}
+
+.offer-datepicker-popup .dp-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #333;
+}
+
+.offer-datepicker-popup .dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.offer-datepicker-popup .dp-day-header {
+    text-align: center;
+    font-size: 11px;
+    color: #999;
+    padding: 4px 0;
+    font-weight: 600;
+}
+
+.offer-datepicker-popup .dp-day {
+    text-align: center;
+    padding: 6px 0;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #333;
+    transition: background 0.1s;
+}
+
+.offer-datepicker-popup .dp-day:hover {
+    background: #e8f5f9;
+}
+
+.offer-datepicker-popup .dp-day.dp-today {
+    border: 1px solid #afcb31;
+}
+
+.offer-datepicker-popup .dp-day.dp-selected {
+    background: #afcb31;
+    color: #fff;
+    font-weight: 600;
+}
+
+.offer-datepicker-popup .dp-day.dp-other-month {
+    color: #ccc;
+}
+
+/* ── Print PDF Button Spinner ── */
+
+.btn-print-pdf-row .icon-spin,
+.btn-print-pdf .icon-spin {
+    animation: iconSpin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@keyframes iconSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Product Card Improvements ── */
+
+.offer-product-card .price-offer-form-section {
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 10px;
+}
+
+.offer-product-card .price-offer-form-section label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+}
+
+.offer-product-card .price-tier {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.offer-product-card .price-tier-highlight {
+    border-top: 1px dashed #ccc;
+    margin-top: 6px;
+    padding-top: 8px;
+}
+
+.offer-product-card .price-tier-highlight strong {
+    font-size: 16px;
+    color: #28a745;
+}
+
+/* ── History Scroll ── */
+
+.offer-history-scroll-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+.offer-history-scroll-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.offer-history-scroll-container::-webkit-scrollbar-thumb {
+    background: #c0c0c0;
+    border-radius: 3px;
+}
+
+.history-header-bar {
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+    margin: -15px -15px 15px -15px;
+    padding: 15px;
+}
+
+
+.ppc-config-summary .ppc-cs-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ppc-config-summary .ppc-chip-color-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.ppc-config-summary .ppc-cs-label {
+    white-space: nowrap;
+    font-weight: 600;
+    color: #555;
+    width: 40%;
+    vertical-align: middle;
+}
+
+.ppc-config-summary .ppc-cs-val-text {
+    vertical-align: middle;
+}
+
+.ppc-config-summary .ppc-config-table {
+    font-size: 13px;
+}
+
+.ppc-config-summary .ppc-config-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+/* ── Show More/Less DISABLED in admin — always show all rows ── */
+.ppc-config-summary .ppc-cs-row-extra {
+    display: table-row !important;
+}
+.ppc-config-summary .ppc-cs-fade {
+    display: none !important;
+}
+.ppc-config-summary .ppc-cs-toggle {
+    display: none !important;
 }
