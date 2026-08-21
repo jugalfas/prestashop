@@ -201,10 +201,11 @@ class ExportBuilder
 
     private function getProductVariables($idProduct)
     {
-        $sql = "SELECT pv.*, v.name as variable_code, vt.label as tooltip_code
+        $sql = "SELECT pv.*, v.name as variable_code, vt.label as tooltip_code, pvl.name as public_name
                 FROM " . _DB_PREFIX_ . "product_variable pv
                 LEFT JOIN " . _DB_PREFIX_ . "variable v ON pv.id_variable = v.id_variable
                 LEFT JOIN " . _DB_PREFIX_ . "variable_tooltip vt ON pv.id_variable_tooltip = vt.id_variable_tooltip
+                LEFT JOIN " . _DB_PREFIX_ . "product_variable_lang pvl ON (pv.id_product_variable = pvl.id_product_variable AND pvl.id_lang = " . $this->id_lang . ")
                 WHERE pv.id_product = " . (int)$idProduct;
         $vars = $this->db->executeS($sql);
 
@@ -234,6 +235,7 @@ class ExportBuilder
 
             $result[] = [
                 'variable_code' => $var['variable_code'],
+                'public_name' => $var['public_name'],
                 'tooltip_code' => $var['tooltip_code'],
                 'formula_name' => $var['formula_name'],
                 'active' => (bool)$var['active'],

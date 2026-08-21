@@ -419,6 +419,17 @@
                                         </label>
                                     </div>
                                 </li>
+                                <li>
+                                    <div class="md-checkbox md-checkbox-inline">
+                                        <label>
+                                            <input type="checkbox" class="product-child-checkbox"
+                                                name="products[{$product.id_product}][]" value="assigned_variables"
+                                                data-parent="{$product.id_product}">
+                                            <i class="md-checkbox-control"></i>
+                                            {l s='Assigned variables' mod='productpriceconfig'}
+                                        </label>
+                                    </div>
+                                </li>
                             </ul>
                         </li>
                     {/foreach}

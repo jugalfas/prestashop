@@ -517,7 +517,7 @@ class ImportRunner
             $setData[$col] = $val;
         }
 
-        if (empty($setData)) {
+        if (empty($setData) && !(in_array('assigned_variables', $elements) && isset($cfg['assigned_variables']))) {
             $results['warnings'][] = "No selected product elements for $productRef";
             return;
         }
@@ -595,12 +595,12 @@ class ImportRunner
 
 
                                     if ($idOption) {
-                                        $optionIds[] = (int)$idOption;
+                                        $optionIds[] = $idOption;
                                     }
                                 }
 
                                 $disallowRules[] = array(
-                                    'disallow_variable' => (int)$idVariable,
+                                    'disallow_variable' => [$idVariable],
                                     'disallow_options'  => $optionIds,
                                 );
                             }
@@ -738,6 +738,96 @@ class ImportRunner
             }, array_values($insertData));
             $db->execute("INSERT INTO $tbl (`id_product`, " . implode(',', $fields) . ") VALUES ('" . pSQL($idProduct) . "', " . implode(',', $values) . ")");
             $results['imported'][] = "Product config created: $productRef";
+        }
+
+        // Process assigned_variables
+        if (in_array('assigned_variables', $elements) && isset($cfg['assigned_variables']) && is_array($cfg['assigned_variables'])) {
+            $hasExistingVars = (int)$db->getValue("SELECT 1 FROM `" . pSQL(_DB_PREFIX_) . "product_variable` WHERE id_product=" . (int)$idProduct);
+            if ($hasExistingVars && !$overwrite) {
+                $results['skipped'][] = "Product variables exist and skipped for: $productRef";
+            } else {
+                if ($hasExistingVars) {
+                    $db->execute("DELETE pvl FROM `" . pSQL(_DB_PREFIX_) . "product_variable_lang` pvl INNER JOIN `" . pSQL(_DB_PREFIX_) . "product_variable` pv ON pvl.id_product_variable = pv.id_product_variable WHERE pv.id_product=" . (int)$idProduct);
+                    $db->execute("DELETE FROM `" . pSQL(_DB_PREFIX_) . "product_variable` WHERE id_product=" . (int)$idProduct);
+                }
+                $defaultIdLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+                foreach ($cfg['assigned_variables'] as $assignedVar) {
+                    $varCode = isset($assignedVar['variable_code']) ? $assignedVar['variable_code'] : '';
+                    $tooltipCode = isset($assignedVar['tooltip_code']) ? $assignedVar['tooltip_code'] : '';
+                    
+                    $idVariable = 0;
+                    if ($varCode) {
+                        $idVariable = (int)$db->getValue("SELECT id_variable FROM `" . pSQL(_DB_PREFIX_) . "variable` WHERE name='" . pSQL($varCode) . "'");
+                    }
+                    
+                    $idTooltip = 0;
+                    if ($tooltipCode) {
+                        $idTooltip = (int)$db->getValue("SELECT id_variable_tooltip FROM `" . pSQL(_DB_PREFIX_) . "variable_tooltip` WHERE label='" . pSQL($tooltipCode) . "'");
+                    }
+                    
+                    $allowedOptionIds = [];
+                    if (!empty($assignedVar['allowed_options']) && is_array($assignedVar['allowed_options'])) {
+                        foreach ($assignedVar['allowed_options'] as $optLabel) {
+                            $idOpt = (int)$db->getValue(
+                                "SELECT o.id_option 
+                                 FROM `" . pSQL(_DB_PREFIX_) . "option` o
+                                 INNER JOIN `" . pSQL(_DB_PREFIX_) . "option_lang` ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                                 WHERE " . ($idVariable ? "o.id_variable=" . (int)$idVariable . " AND " : "") . "ol.label='" . pSQL($optLabel) . "'"
+                            );
+                            if ($idOpt) {
+                                $allowedOptionIds[] = $idOpt;
+                            }
+                        }
+                    }
+                    
+                    $defaultOptionId = 0;
+                    if (!empty($assignedVar['default_option'])) {
+                        $defaultOptionId = (int)$db->getValue(
+                            "SELECT o.id_option 
+                             FROM `" . pSQL(_DB_PREFIX_) . "option` o
+                             INNER JOIN `" . pSQL(_DB_PREFIX_) . "option_lang` ol ON (o.id_option = ol.id_option AND ol.id_lang = " . (int)$defaultIdLang . ")
+                             WHERE " . ($idVariable ? "o.id_variable=" . (int)$idVariable . " AND " : "") . "ol.label='" . pSQL($assignedVar['default_option']) . "'"
+                        );
+                    }
+                    
+                    $optionsJson = json_encode($allowedOptionIds);
+                    
+                    $db->execute("INSERT INTO `" . pSQL(_DB_PREFIX_) . "product_variable`
+                        (`id_product`, `id_variable`, `id_variable_tooltip`, `formula_name`, `active`, `minimum`, `maximum`, `multiplier`, `options`, `default_option`)
+                        VALUES (
+                            " . (int)$idProduct . ",
+                            " . (int)$idVariable . ",
+                            " . (int)$idTooltip . ",
+                            '" . pSQL($assignedVar['formula_name'] ?? '') . "',
+                            " . (int)($assignedVar['active'] ?? 1) . ",
+                            " . (float)($assignedVar['minimum'] ?? 0) . ",
+                            " . (float)($assignedVar['maximum'] ?? 0) . ",
+                            " . (float)($assignedVar['multiplier'] ?? 0) . ",
+                            '" . pSQL($optionsJson) . "',
+                            " . (int)$defaultOptionId . "
+                        )
+                    ");
+                    
+                    $idProductVariable = (int)$db->Insert_ID();
+                    $publicName = isset($assignedVar['public_name']) ? $assignedVar['public_name'] : $varCode;
+                    
+                    if ($idProductVariable) {
+                        $langs = \Language::getLanguages(true);
+                        foreach ($langs as $lang) {
+                            $idLang = (int)$lang['id_lang'];
+                            $db->execute("INSERT INTO `" . pSQL(_DB_PREFIX_) . "product_variable_lang`
+                                (`id_product_variable`, `id_lang`, `name`)
+                                VALUES (
+                                    " . (int)$idProductVariable . ",
+                                    " . (int)$idLang . ",
+                                    '" . pSQL($publicName) . "'
+                                )
+                            ");
+                        }
+                    }
+                }
+                $results['imported'][] = "Product variables updated: $productRef";
+            }
         }
     }
 }

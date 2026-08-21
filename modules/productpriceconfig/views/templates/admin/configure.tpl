@@ -129,8 +129,8 @@
 			</div>
 			<div id="fc-notification-area" class="fc-alert"></div>
 			<div class="clearfix"></div>
-			<button type="button" class="btn btn-primary" style="float:right;" id="btn-add-formula-condition" data-toggle="modal"
-				data-target="#formula_condition_modal">
+			<button type="button" class="btn btn-primary" style="float:right;" id="btn-add-formula-condition"
+				data-toggle="modal" data-target="#formula_condition_modal">
 				<i class="fa fa-plus"></i> {l s='Add Formula Condition' mod='productpriceconfig'}
 			</button>
 			<div class="clearfix"></div>
@@ -150,7 +150,9 @@
 					</tr>
 				</thead>
 				<tbody id="fc-table-body">
-					<tr><td colspan="9" class="text-center">Loading...</td></tr>
+					<tr>
+						<td colspan="9" class="text-center">Loading...</td>
+					</tr>
 				</tbody>
 			</table>
 		</div>
@@ -522,7 +524,8 @@
 								<select class="form-control" id="fc_id_variable">
 									<option value="">-- {l s='Select variable' mod='productpriceconfig'} --</option>
 									{foreach $variables as $t}
-										<option value="{$t['id_variable']}" data-type="{$t['variable_type']}">{$t['variable_name']}</option>
+										<option value="{$t['id_variable']}" data-type="{$t['variable_type']}">
+											{$t['variable_name']}</option>
 									{/foreach}
 								</select>
 								<i id="fc_variable_spinner" class="fa fa-spinner fa-spin"></i>
@@ -530,14 +533,16 @@
 						</div>
 						<div class="col-md-6">
 							<div class="form-group" id="fc_value_wrap" style="display:none;">
-								<label for="fc_id_option" id="fc_value_label">{l s='Variable Value' mod='productpriceconfig'}</label>
+								<label for="fc_id_option"
+									id="fc_value_label">{l s='Variable Value' mod='productpriceconfig'}</label>
 								<div id="fc_value_select">
 									<select class="form-control" id="fc_id_option">
 										<option value="0">--</option>
 									</select>
 								</div>
 								<div id="fc_value_input" style="display:none;">
-									<input type="text" class="form-control" id="fc_custom_value" placeholder="Enter value">
+									<input type="text" class="form-control" id="fc_custom_value"
+										placeholder="Enter value">
 								</div>
 							</div>
 						</div>
@@ -580,7 +585,8 @@
 						<div class="col-md-12">
 							<div class="form-group">
 								<label>
-									<input type="checkbox" id="fc_active" checked> {l s='Active' mod='productpriceconfig'}
+									<input type="checkbox" id="fc_active" checked>
+									{l s='Active' mod='productpriceconfig'}
 								</label>
 							</div>
 						</div>
@@ -588,8 +594,10 @@
 				</form>
 			</div>
 			<div class="modal-footer">
-				<button type="button" class="btn btn-secondary" data-dismiss="modal">{l s='Close' mod='productpriceconfig'}</button>
-				<button type="button" class="btn btn-primary" id="btn-save-condition" data-mode="create">{l s='Save' mod='productpriceconfig'}</button>
+				<button type="button" class="btn btn-secondary"
+					data-dismiss="modal">{l s='Close' mod='productpriceconfig'}</button>
+				<button type="button" class="btn btn-primary" id="btn-save-condition"
+					data-mode="create">{l s='Save' mod='productpriceconfig'}</button>
 			</div>
 		</div>
 	</div>
@@ -601,7 +609,7 @@
 	var id_product = $('.af').data('id_product');
 	$('#rules_list').DataTable({
 		"processing": true,
-		"serverSide": true,
+		"serverSide": false,
 		"ajax": {
 			"url": ajax_action_path + '&action=AjaxDatatableRulesList&id_product=' + id_product,
 			"type": "GET"

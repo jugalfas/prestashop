@@ -137,6 +137,50 @@ class AdminProductPriceExportController extends ModuleAdminController
                 }
             }
 
+            // Filter product data based on selected checkboxes
+            if (is_array($productsSel) && !empty($export['products'])) {
+                $filteredProducts = [];
+                foreach ($export['products'] as $prodCfg) {
+                    $pid = $prodCfg['id_product'];
+                    if (!isset($productsSel[$pid])) {
+                        continue;
+                    }
+                    $sel = $productsSel[$pid];
+
+                    $filteredCfg = [
+                        'id_product' => $prodCfg['id_product'],
+                        'product_reference' => $prodCfg['product_reference'],
+                        'product_name' => $prodCfg['product_name'],
+                    ];
+
+                    if (in_array('formula', $sel)) {
+                        $filteredCfg['formula_price'] = $prodCfg['formula_price'];
+                        $filteredCfg['formula_weight'] = $prodCfg['formula_weight'];
+                        $filteredCfg['formula_thickness'] = $prodCfg['formula_thickness'];
+                        $filteredCfg['formula_shipping'] = $prodCfg['formula_shipping'];
+                    }
+
+                    if (in_array('tiered_price', $sel)) {
+                        $filteredCfg['tiered_pricing_rules'] = $prodCfg['tiered_pricing_rules'];
+                    }
+
+                    if (in_array('banned_combinations', $sel)) {
+                        $filteredCfg['banned_combinations'] = $prodCfg['banned_combinations'];
+                    }
+
+                    if (in_array('odd_quantity', $sel)) {
+                        $filteredCfg['odd_quantity_percentage'] = $prodCfg['odd_quantity_percentage'];
+                    }
+
+                    if (in_array('assigned_variables', $sel)) {
+                        $filteredCfg['assigned_variables'] = $prodCfg['assigned_variables'];
+                    }
+
+                    $filteredProducts[] = $filteredCfg;
+                }
+                $export['products'] = $filteredProducts;
+            }
+
             // Output final export JSON
             header('Content-Type: application/json');
             header('Content-Disposition: attachment; filename="productprice_export_' . date('Y-m-d') . '.json"');

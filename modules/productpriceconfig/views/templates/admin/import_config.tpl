@@ -262,6 +262,12 @@
                                         <i class="md-checkbox-control"></i> {$module->l('Odd quantity percentage')}
                                     </label>
                                 </div>
+                                <div class="md-checkbox md-checkbox-inline">
+                                    <label>
+                                        <input type="checkbox" name="products[{$pref}][]" value="assigned_variables" checked />
+                                        <i class="md-checkbox-control"></i> {$module->l('Assigned variables')}
+                                    </label>
+                                </div>
                             </div>
                         {/foreach}
                     </div>
